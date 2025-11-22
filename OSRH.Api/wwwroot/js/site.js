@@ -172,26 +172,22 @@ let map; // Global μεταβλητή για τον χάρτη
 async function loadOffers(requestId) {
     const container = document.getElementById('offers-container');
     container.innerHTML = "Φόρτωση...";
-    
-    // Εμφάνιση του section
     document.getElementById('offers-section').classList.remove('hidden');
 
     const response = await fetch(`/api/app/passenger/offers/${requestId}`);
     const offers = await response.json();
 
-    container.innerHTML = ""; // Clear
+    container.innerHTML = ""; 
 
     if (offers.length === 0) {
         container.innerHTML = "<p>Δεν βρέθηκαν οδηγοί ακόμη.</p>";
         return;
     }
 
-    // --- ΧΑΡΤΗΣ LOGIC (Leaflet) ---
-    // Παίρνουμε τις συντεταγμένες από την πρώτη προσφορά (είναι ίδιες για όλες, αφού είναι το ίδιο Request)
+    // --- ΧΑΡΤΗΣ (Advanced Visualization) ---
     const pickup = [offers[0].pickup_latitude, offers[0].pickup_longitude];
     const dropoff = [offers[0].dropoff_latitude, offers[0].dropoff_longitude];
 
-    // Αν ο χάρτης δεν έχει αρχικοποιηθεί, τον φτιάχνουμε
     if (!map) {
         map = L.map('map');
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -199,40 +195,60 @@ async function loadOffers(requestId) {
         }).addTo(map);
     }
 
-    // Καθαρίζουμε παλιές πινέζες (αν υπάρχουν)
+    // Καθαρισμός
     map.eachLayer((layer) => {
         if (layer instanceof L.Marker || layer instanceof L.Polyline) {
             layer.remove();
         }
     });
 
-    // Βάζουμε πινέζες
-    L.marker(pickup).addTo(map).bindPopup("<b>Παραλαβή</b>").openPopup();
+    // 1. Βασική Διαδρομή (Μαύρη διακεκομμένη γραμμή: Παραλαβή -> Προορισμός)
+    const mainRoute = L.polyline([pickup, dropoff], {color: 'black', dashArray: '5, 10', weight: 3}).addTo(map);
+    L.marker(pickup).addTo(map).bindPopup("<b>Σημείο Παραλαβής</b>").openPopup();
     L.marker(dropoff).addTo(map).bindPopup("<b>Προορισμός</b>");
 
-    // Ζωγραφίζουμε μια γραμμή ανάμεσα
-    const routeLine = L.polyline([pickup, dropoff], {color: 'blue'}).addTo(map);
-    
-    // Κεντράρισμα του χάρτη για να φαίνονται και τα δύο σημεία
-    map.fitBounds(routeLine.getBounds(), {padding: [50, 50]});
-    
-    // Αναγκαστικό refresh του χάρτη (fix για rendering bugs σε κρυμμένα divs)
-    setTimeout(() => { map.invalidateSize(); }, 100);
-    // ------------------------------
+    // Χρώματα για τους οδηγούς
+    const colors = ['blue', 'red', 'green', 'purple'];
 
-    // Εμφάνιση καρτών οδηγών
-    offers.forEach(offer => {
+    // 2. Ζωγραφίζουμε κάθε οδηγό ξεχωριστά
+    offers.forEach((offer, index) => {
+        const color = colors[index % colors.length]; // Επιλογή χρώματος
+
+        // SIMULATION: Δημιουργούμε μια τυχαία θέση για τον οδηγό κοντά στην παραλαβή
+        // (Σε πραγματικό σύστημα, αυτό θα ερχόταν από το GPS του οδηγού στη βάση)
+        const offsetLat = (Math.random() - 0.5) * 0.02; // +/- 1km περίπου
+        const offsetLon = (Math.random() - 0.5) * 0.02;
+        const driverPos = [pickup[0] + offsetLat, pickup[1] + offsetLon];
+
+        // Marker Οδηγού (Κύκλος με το χρώμα του)
+        L.circleMarker(driverPos, {
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.8,
+            radius: 8
+        }).addTo(map).bindPopup(`<b>${offer.DriverName}</b><br>${offer.VehicleModel}`);
+
+        // Γραμμή Προσέγγισης (Οδηγός -> Παραλαβή)
+        L.polyline([driverPos, pickup], {color: color, weight: 4, opacity: 0.7}).addTo(map);
+
+        // --- ΚΑΡΤΑ UI ---
+        // Προσθέτουμε μια λωρίδα χρώματος στην κάρτα για να ταιριάζει με τον χάρτη
         const card = document.createElement('div');
-        card.style = "border: 1px solid #ddd; padding: 15px; border-radius: 8px; width: 200px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1);";
+        card.style = `border: 1px solid #ddd; border-top: 5px solid ${color}; padding: 15px; border-radius: 8px; width: 200px; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1);`;
         card.innerHTML = `
-            <h4 style="margin-top:0;">${offer.DriverName}</h4>
+            <h4 style="margin-top:0; color:${color};">${offer.DriverName}</h4>
             <p>🚗 ${offer.VehicleModel} (${offer.VehicleColor})</p>
             <p>💰 <strong>€${offer.estimated_cost.toFixed(2)}</strong></p>
             <p style="font-size:0.8em; color:gray;">"${offer.DriverNotes}"</p>
-            <button onclick="acceptOffer(${offer.offer_id}, ${requestId})" style="width:100%; background-color: #007bff; margin-top:10px;">Επιλογή</button>
+            <button onclick="acceptOffer(${offer.offer_id}, ${requestId})" style="width:100%; background-color: ${color}; color: white; border:none; padding:8px; border-radius:4px; cursor:pointer; margin-top:10px;">Επιλογή</button>
         `;
         container.appendChild(card);
     });
+    
+    // Ζουμ για να φαίνονται όλα
+    const group = new L.featureGroup([L.marker(pickup), L.marker(dropoff)]);
+    map.fitBounds(group.getBounds(), {padding: [50, 50]});
+    setTimeout(() => { map.invalidateSize(); }, 100);
 }
 
 function closeOffers() {
