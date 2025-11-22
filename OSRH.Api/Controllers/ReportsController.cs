@@ -1,0 +1,33 @@
+using Microsoft.AspNetCore.Mvc;
+using OSRH.Api.Services;
+
+namespace OSRH.Api.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")] // Η διεύθυνση θα είναι /api/reports
+    public class ReportsController : ControllerBase
+    {
+        private readonly ReportService _reportService;
+
+        public ReportsController(ReportService reportService)
+        {
+            _reportService = reportService;
+        }
+
+        // GET: api/reports/cost-analysis
+        [HttpGet("cost-analysis")]
+        public async Task<IActionResult> GetCostAnalysis()
+        {
+            try
+            {
+                var data = await _reportService.GetCostAnalysisAsync();
+                return Ok(data); // Επιστρέφει 200 OK και το JSON
+            }
+            catch (Exception ex)
+            {
+                // Σε πραγματική εφαρμογή θα καταγράφαμε το λάθος
+                return StatusCode(500, "Internal Server Error: " + ex.Message);
+            }
+        }
+    }
+}

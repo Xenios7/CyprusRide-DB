@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSRH Platform</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; }
+        .container { max-width: 1200px; /* Αύξησα το πλάτος για να χωράνε περισσότερα */ margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        
+        /* Login Styles */
+        #login-section { max-width: 350px; margin: 50px auto; text-align: center; padding: 40px; border: 1px solid #eee; border-radius: 8px; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        
+        /* Buttons */
+        .nav-buttons { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+        
+        button { padding: 10px 20px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.3s; }
+        button:hover { background-color: #0056b3; }
+        button.logout { background-color: #dc3545; }
+        button.logout:hover { background-color: #a71d2a; }
+
+        /* Table Styles - RESPONSIVE FIX */
+        .table-container {
+            width: 100%;
+            overflow-x: auto; /* Επιτρέπει οριζόντιο scroll αν ο πίνακας είναι μεγάλος */
+            margin-top: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            min-width: 800px; /* Ελάχιστο πλάτος για να μην στριμώχνονται τα δεδομένα */
+        }
+        
+        th, td { 
+            padding: 12px 15px; 
+            text-align: left; 
+            border-bottom: 1px solid #ddd; 
+            white-space: nowrap; /* Κρατάει το κείμενο σε μία γραμμή */
+        }
+        
+        th { background-color: #f8f9fa; font-weight: 600; color: #333; }
+        tr:hover { background-color: #f1f1f1; }
+        
+        .hidden { display: none; }
+        #loading { font-style: italic; color: #666; margin: 10px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="login-section">
+        <h1>OSRH Login</h1>
+        <input type="text" id="username" placeholder="Όνομα Χρήστη (π.χ. sophia_admin)">
+        <input type="password" id="password" placeholder="Κωδικός">
+        <button onclick="login()" style="width:100%; margin-top:10px;">Είσοδος</button>
+        <p id="login-msg" style="color:red; margin-top:10px; font-size:0.9em;"></p>
+    </div>
+
+    <div id="dashboard-section" class="hidden">
+        <div class="nav-buttons">
+            <h3>Καλωσήρθες, <span id="user-display" style="color:#007bff;"></span></h3>
+            <button onclick="logout()" class="logout">Έξοδος</button>
+        </div>
+
+        <div class="action-buttons">
+            <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
+            <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
+            <button onclick="loadOpenRequests()">Ανοιχτά Αιτήματα (Οδηγός)</button>
+        </div>
+
+        <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
+        <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
+        
+        <div class="table-container">
+            <table id="data-table">
+                <thead></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script src="js/site.js"></script>
+</body>
+</html>
