@@ -33,5 +33,6 @@
 /Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/OSRH.Api.pdb
 /Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/OSRH.Api.genruntimeconfig.cache
 /Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/ref/OSRH.Api.dll
-/Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/compressed/jm3jj75931-sjkkx0din1.gz
-/Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/compressed/9bdeb7ql3q-g70yrvz96n.gz
+/Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/OSRH.Api.sourcelink.json
+/Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/compressed/9bdeb7ql3q-z5bf8bt7to.gz
+/Users/xenios/Desktop/342 Βασεις/PROJECT/interface/sources/OSRH.Api/obj/Debug/net9.0/compressed/jm3jj75931-b6lafdgv40.gz
