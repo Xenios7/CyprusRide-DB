@@ -101,33 +101,39 @@ namespace OSRH.Api.Controllers
                 .ToDictionary(data => data.ColumnName, data => data.Value)).ToList();
         }
         // 5. PASSENGER: Create New Request
+ // 5. PASSENGER: Create New Request (Διορθωμένη για να επιστρέφει το ID)
+// 5. PASSENGER: Create New Request (ΔΙΟΡΘΩΜΕΝΗ ΜΕΘΟΔΟΣ ΓΙΑ ΝΑ ΕΠΙΣΤΡΕΦΕΙ ΤΟ ID)
         [HttpPost("passenger/request")]
         public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
+            // Ανάκτηση παραμέτρων (username, serviceId, notes, κτλ.)
             string username = reqData["username"]!.ToString();
             int serviceId = int.Parse(reqData["serviceId"]!.ToString());
             string notes = reqData["notes"]?.ToString() ?? "";
-            
-            // Hardcoded coordinates for demo (In a real app, use Leaflet/Map click)
+
+            // --- Στοιχεία Διαδρομής (Hardcoded για demo) ---
             decimal pickupLat = 35.1700m;
             decimal pickupLon = 33.3600m;
             decimal dropoffLat = 34.9200m;
             decimal dropoffLon = 33.6300m;
             decimal estimatedFare = 15.50m; // Simplified estimation
 
-            // 1. Get User ID
+            // 1. Βρες το User ID
             var userDt = await _db.LoadDataAsync("SELECT user_id FROM dbo.[USER] WHERE username = @u", 
                 new[] { new SqlParameter("@u", username) });
             
-            if (userDt.Rows.Count == 0) return NotFound("User not found");
+            if (userDt.Rows.Count == 0) return NotFound(new { message = "User not found." });
             int userId = (int)userDt.Rows[0]["user_id"];
 
-            // 2. Insert Request
+            // 2. SQL: INSERT & SELECT SCOPE_IDENTITY()
             string sql = @"
                 INSERT INTO dbo.TRANSPORT_REQUEST 
                 (user_id, service_id, request_time, status, estimated_fare, pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude, notes)
-                VALUES (@uid, @sid, GETDATE(), 'Open', @fare, @plat, @plon, @dlat, @dlon, @notes)";
-
+                VALUES (@uid, @sid, GETDATE(), 'Open', @fare, @plat, @plon, @dlat, @dlon, @notes);
+                
+                SELECT SCOPE_IDENTITY() AS RequestId;"; // <-- Επιστρέφει το ID
+            
+            // 3. Παράμετροι (χρειάζονται όλα τα στοιχεία)
             var parameters = new SqlParameter[] {
                 new SqlParameter("@uid", userId),
                 new SqlParameter("@sid", serviceId),
@@ -139,8 +145,16 @@ namespace OSRH.Api.Controllers
                 new SqlParameter("@notes", notes)
             };
 
-            await _db.ExecuteAsync(sql, parameters);
-            return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!" });
+            // 4. ΕΚΤΕΛΕΣΗ: Χρησιμοποιούμε LoadDataAsync και παίρνουμε τον DataTable
+            DataTable dt = await _db.LoadDataAsync(sql, parameters);
+            
+            // 5. Ανάκτηση του νέου ID και μετατροπή σε INT
+            // Το SCOPE_IDENTITY() επιστρέφεται ως decimal, πρέπει να το κάνουμε cast
+            decimal newRequestIdDecimal = (decimal)dt.Rows[0]["RequestId"];
+            int newRequestId = (int)newRequestIdDecimal;
+
+            // 6. Επιστροφή επιτυχίας και του ID (για χρήση στο Frontend)
+            return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
         }
 
         // 6. PASSENGER: View My History
@@ -187,6 +201,43 @@ namespace OSRH.Api.Controllers
             );
 
             return Ok(new { message = "Η διαδρομή ξεκίνησε! Καλό ταξίδι." });
+        }
+
+        // 9. DRIVER: Submit Offer for a Request
+        // (Χρειάζεται να βρεθεί το driverId του συνδεδεμένου χρήστη)
+        [HttpPost("driver/submit-offer")]
+        public async Task<IActionResult> SubmitOffer([FromBody] JsonObject offerData)
+        {
+            // Ανάκτηση των απαραίτητων παραμέτρων από το frontend (Driver ID και Offer Details)
+            int requestId = int.Parse(offerData["requestId"]!.ToString());
+            int driverId = int.Parse(offerData["driverId"]!.ToString()); // Driver ID του συνδεδεμένου χρήστη
+            int vehicleId = int.Parse(offerData["vehicleId"]!.ToString());
+            decimal estimatedCost = decimal.Parse(offerData["estimatedCost"]!.ToString());
+            
+            // Τυχαία απόσταση για το demo
+            decimal distanceToPickup = (decimal) (1.0 + new Random().NextDouble() * 5.0); 
+
+            var parameters = new SqlParameter[] {
+                new SqlParameter("@RequestId", requestId),
+                new SqlParameter("@DriverId", driverId),
+                new SqlParameter("@VehicleId", vehicleId),
+                new SqlParameter("@EstimatedCost", estimatedCost),
+                new SqlParameter("@DistanceToPickup", distanceToPickup)
+            };
+
+            // Εκτέλεση του SP και λήψη του αποτελέσματος (Success/Message)
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_SubmitOffer", 
+                parameters, 
+                CommandType.StoredProcedure
+            );
+
+            // Ελέγχουμε την απάντηση του SQL Server
+            if ((int)dt.Rows[0]["Success"] == 1)
+            {
+                return Ok(new { message = dt.Rows[0]["Message"].ToString() });
+            }
+            return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
         }
     }
 }

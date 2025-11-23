@@ -15,7 +15,6 @@ async function login() {
             
             // --- ΔΙΟΡΘΩΣΗ RBAC: Αποθήκευση session & ρόλων ---
             sessionStorage.setItem('currentUser', user.username);
-            // Το backend επιστρέφει ένα array με τους ρόλους (π.χ. ['Admin', 'Passenger'])
             sessionStorage.setItem('userRoles', JSON.stringify(user.roles || [])); 
             // --- ΤΕΛΟΣ ΔΙΟΡΘΩΣΗΣ ---
 
@@ -57,10 +56,10 @@ async function loadReport(type) {
 // Φόρτωση Αιτημάτων (Οδηγός)
 async function loadOpenRequests() {
     document.getElementById('table-title').innerText = 'Διαθέσιμα Αιτήματα Διαδρομών';
-    fetchData('/api/app/driver/open-requests');
+    fetchData(`/api/app/driver/open-requests`);
 }
 
-// Γενική συνάρτηση για κλήση API και εμφάνιση πίνακα
+// Ενημερωμένη fetchData με υποστήριξη κουμπιών ενεργειών
 async function fetchData(endpoint) {
     const tableHead = document.querySelector("#data-table thead");
     const tableBody = document.querySelector("#data-table tbody");
@@ -75,24 +74,65 @@ async function fetchData(endpoint) {
         const data = await response.json();
 
         if (data.length > 0) {
-            // Δημιουργία επικεφαλίδων δυναμικά από τα κλειδιά του JSON
             const headers = Object.keys(data[0]);
+            
+            // 1. Headers
             const headerRow = document.createElement("tr");
             headers.forEach(key => {
                 const th = document.createElement("th");
                 th.innerText = key;
                 headerRow.appendChild(th);
             });
+
+            // Αν είναι η οθόνη του Οδηγού, πρόσθεσε στήλη "Ενέργεια"
+            const isDriverView = endpoint.includes('driver/open-requests');
+            if (isDriverView) {
+                const th = document.createElement("th");
+                th.innerText = "Ενέργεια";
+                headerRow.appendChild(th);
+            }
             tableHead.appendChild(headerRow);
 
-            // Δημιουργία γραμμών
+            // 2. Rows
             data.forEach(row => {
                 const tr = document.createElement("tr");
+                
+                // Γέμισμα δεδομένων
                 headers.forEach(key => {
                     const td = document.createElement("td");
                     td.innerText = row[key] !== null ? row[key] : '-';
                     tr.appendChild(td);
                 });
+
+                // Αν είναι οδηγός, πρόσθεσε τα κουμπιά Submit / Reject
+                if (isDriverView) {
+                    const td = document.createElement("td");
+                    td.style.display = 'flex';
+                    td.style.gap = '5px'; // Δίνει χώρο ανάμεσα στα κουμπιά
+
+                    // 1. Κουμπί Υποβολής Προσφοράς (Πράσινο)
+                    const submitBtn = document.createElement("button");
+                    submitBtn.innerText = "Υποβολή Προσφοράς";
+                    submitBtn.style.backgroundColor = "#28a745"; 
+                    submitBtn.style.padding = "5px 10px";
+                    submitBtn.style.fontSize = "12px";
+                    submitBtn.onclick = () => makeOffer(row.request_id, row.estimated_fare);
+                    
+                    // 2. Κουμπί Απόρριψης (Κόκκινο)
+                    const rejectBtn = document.createElement("button");
+                    rejectBtn.innerText = "Απόρριψη";
+                    rejectBtn.style.backgroundColor = "#dc3545"; 
+                    rejectBtn.style.padding = "5px 10px";
+                    rejectBtn.style.fontSize = "12px";
+                    rejectBtn.onclick = () => rejectRequest(row.request_id); // Καλούμε τη νέα συνάρτηση
+
+                    // Προσθέτουμε και τα δύο κουμπιά στο κελί
+                    td.appendChild(submitBtn);
+                    td.appendChild(rejectBtn);
+                    tr.appendChild(td);
+                }
+
+
                 tableBody.appendChild(tr);
             });
         } else {
@@ -104,8 +144,48 @@ async function fetchData(endpoint) {
     } finally {
         loading.classList.add('hidden');
     }
-} // <-- Προστέθηκε η αγκύλη κλεισίματος για το fetchData
+}
 
+// Νέα συνάρτηση: Ο Οδηγός κάνει προσφορά
+async function makeOffer(requestId, estimatedFare) {
+    // Ζητάμε από τον οδηγό να επιβεβαιώσει ή να αλλάξει την τιμή
+    const costInput = prompt("Εισάγετε το κόστος της προσφοράς σας (€):", estimatedFare);
+    if (costInput === null) return; // Cancelled
+
+    const finalCost = parseFloat(costInput);
+    if (isNaN(finalCost)) { alert("Παρακαλώ εισάγετε έγκυρο αριθμό."); return; }
+
+    // Hardcoded driver/vehicle ID για το demo (John Christou)
+    const driverId = 1; 
+    const vehicleId = 1; 
+
+    const offerData = {
+        requestId: requestId,
+        driverId: driverId,
+        vehicleId: vehicleId,
+        estimatedCost: finalCost
+    };
+
+    try {
+        const response = await fetch('/api/app/driver/submit-offer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(offerData)
+        });
+
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert("Η προσφορά στάλθηκε επιτυχώς!");
+            loadOpenRequests();
+        } else {
+            alert("Σφάλμα: " + result.message);
+        }
+    } catch (error) {
+        console.error(error);
+        alert("Σφάλμα επικοινωνίας.");
+    }
+}
 // --- Passenger Logic ---
 
 function showRequestForm() {
@@ -130,14 +210,16 @@ async function submitRequest() {
         });
 
         if (response.ok) {
-            // --- ΑΛΛΑΓΗ ΕΔΩ ---
+            // ΥΠΟΘΕΣΗ: Το backend τώρα επιστρέφει το RequestId, π.χ. { requestId: 100 }
+            const result = await response.json(); 
+            const newRequestId = result.requestId; // Παίρνουμε το νέο ID
+            
             alert("Το αίτημα στάλθηκε! Αναζήτηση οδηγών...");
             document.getElementById('request-form').classList.add('hidden');
             
-            // ΣΗΜΑΝΤΙΚΟ: Επειδή μόλις φτιάξαμε το αίτημα, δεν ξέρουμε το ID του εύκολα εδώ 
-            // χωρίς να αλλάξουμε το backend να επιστρέφει το ID.
-            // Γι' αυτό το demo, θα φορτώσουμε το ιστορικό και θα πάρουμε το τελευταίο 'Open' αίτημα.
-            findMyLatestRequestAndShowOffers(currentUser); 
+            // Καλεί απευθείας τη λειτουργία εμφάνισης προσφορών
+            loadOffers(newRequestId); 
+
         } else {
             alert("Σφάλμα κατά την αποστολή.");
         }
