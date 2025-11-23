@@ -19,7 +19,6 @@ async function login() {
             
             sessionStorage.setItem('currentUser', user.username);
             sessionStorage.setItem('userRoles', JSON.stringify(user.roles || [])); 
-            // Καθαρισμός παλιών απορρίψεων κατά το login
             sessionStorage.removeItem('ignoredRequests');
 
             document.getElementById('login-section').classList.add('hidden');
@@ -51,7 +50,56 @@ function setupDashboard(roles) {
     if (roles.includes('Passenger')) document.getElementById('passenger-features')?.classList.remove('hidden');
 }
 
-// --- 2. DRIVER ACTIONS (ΕΔΩ ΕΙΝΑΙ Η ΔΙΟΡΘΩΣΗ) ---
+// --- 2. ADMIN FUNCTIONS (ΔΙΟΡΘΩΜΕΝΕΣ URLs) ---
+
+async function loadReport(type) {
+    const titleMap = {
+        'cost': 'Ανάλυση Κόστους ανά Υπηρεσία',
+        'driver-performance': 'Απόδοση Οδηγών & Βαθμολογίες'
+    };
+    document.getElementById('table-title').innerText = titleMap[type];
+    resetView();
+    fetchData(`/api/app/reports/${type}`);
+}
+// --- Admin: Έλεγχος Εγγράφων ---
+async function loadPendingDocuments() {
+    document.getElementById('table-title').innerText = 'Έγγραφα προς Έλεγχο (Pending)';
+    resetView(); // Καθαρίζει την οθόνη από χάρτες/φόρμες
+    fetchData('/api/app/admin/pending-documents');
+}
+
+// --- Driver: Διαθεσιμότητα ---
+async function loadAvailability() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    if (!currentUser) return;
+
+    document.getElementById('table-title').innerText = 'Πρόγραμμα Διαθεσιμότητας';
+    resetView(); // Καθαρίζει την οθόνη
+    fetchData(`/api/app/driver/availability/${currentUser}`);
+}
+
+async function verifyDocument(docId, status) {
+    const comments = prompt(`Εισάγετε σχόλια για την ${status}:`, "OK");
+    if (comments === null) return; 
+
+    try {
+        // ΔΙΟΡΘΩΣΗ: Προστέθηκε το /app
+        const response = await fetch('/api/app/admin/verify-document', { 
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ docId, status, comments })
+        });
+
+        if (response.ok) {
+            alert(`Το έγγραφο ${docId} καταχωρήθηκε ως ${status}.`);
+            loadPendingDocuments();
+        } else {
+            alert("Σφάλμα.");
+        }
+    } catch (error) { console.error(error); }
+}
+
+// --- 3. DRIVER FUNCTIONS ---
 
 async function loadOpenRequests() {
     document.getElementById('table-title').innerText = 'Διαθέσιμα Αιτήματα Διαδρομών';
@@ -63,8 +111,6 @@ async function makeOffer(requestId, estimatedFare) {
     const costInput = prompt("Εισάγετε το κόστος της προσφοράς σας (€):", estimatedFare);
     if (costInput === null) return;
 
-    // Για το Demo, χρησιμοποιούμε τον Driver ID 1 (John)
-    // Σε πλήρη εφαρμογή, θα το παίρναμε από το login session
     const driverId = 1; 
     const vehicleId = 1; 
 
@@ -79,7 +125,6 @@ async function makeOffer(requestId, estimatedFare) {
 
         if (response.ok) {
             alert("Η προσφορά στάλθηκε επιτυχώς!");
-            // Κρύβουμε το αίτημα από τη λίστα για να φαίνεται ότι ολοκληρώθηκε
             hideRequestLocally(requestId);
             loadOpenRequests(); 
         } else {
@@ -91,15 +136,11 @@ async function makeOffer(requestId, estimatedFare) {
     }
 }
 
-// Λειτουργία "Έξυπνης" Απόρριψης
 function rejectRequest(requestId) {
     if(!confirm("Είστε σίγουροι ότι θέλετε να απορρίψετε αυτό το αίτημα;")) return;
-
-    // Αποθηκεύουμε το ID στα "αγνοημένα" για να μην το ξαναδούμε σε αυτό το session
     hideRequestLocally(requestId);
-    
     alert("Το αίτημα απορρίφθηκε.");
-    loadOpenRequests(); // Ανανέωση της λίστας (τώρα θα λείπει το αίτημα)
+    loadOpenRequests(); 
 }
 
 function hideRequestLocally(requestId) {
@@ -108,7 +149,141 @@ function hideRequestLocally(requestId) {
     sessionStorage.setItem('ignoredRequests', JSON.stringify(ignored));
 }
 
-// --- 3. FETCH DATA (Με φίλτρο για τα απορριφθέντα) ---
+async function loadAvailability() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = 'Η Διαθεσιμότητά μου';
+    resetView();
+    fetchData(`/api/app/driver/availability/${currentUser}`);
+}
+
+function showUploadForm() {
+    document.getElementById('table-title').innerText = 'Υποβολή Εγγράφου';
+    resetView();
+    document.getElementById('document-form').classList.remove('hidden');
+}
+
+async function submitDocument() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    const docData = {
+        username: currentUser,
+        docType: document.getElementById('doc-type').value,
+        docNumber: document.getElementById('doc-number').value,
+        fileUrl: document.getElementById('doc-url').value,
+        issueDate: document.getElementById('doc-issue').value,
+        expiryDate: document.getElementById('doc-expiry').value
+    };
+    try {
+        await fetch('/api/app/driver/upload-document', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(docData)
+        });
+        alert("Εστάλη!"); document.getElementById('document-form').classList.add('hidden');
+    } catch(e) { alert("Σφάλμα."); }
+}
+
+// --- 4. PASSENGER FUNCTIONS ---
+
+function showRequestForm() {
+    document.getElementById('table-title').innerText = 'Νέα Διαδρομή';
+    resetView();
+    document.getElementById('request-form').classList.remove('hidden');
+}
+
+async function submitRequest() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    try {
+        const response = await fetch('/api/app/passenger/request', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                username: currentUser, 
+                serviceId: document.getElementById('service-select').value, 
+                notes: document.getElementById('request-notes').value 
+            })
+        });
+        if (response.ok) {
+            const res = await response.json();
+            alert("Αίτημα εστάλη!"); loadOffers(res.requestId);
+        }
+    } catch(e) { console.error(e); }
+}
+
+async function loadPassengerHistory() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = 'Ιστορικό';
+    resetView();
+    fetchData(`/api/app/passenger/history/${currentUser}`);
+}
+
+async function loadOffers(requestId) {
+    resetView();
+    document.getElementById('offers-section').classList.remove('hidden');
+    const container = document.getElementById('offers-container');
+    container.innerHTML = "Αναζήτηση οδηγών...";
+
+    const response = await fetch(`/api/app/passenger/offers/${requestId}`);
+    const offers = await response.json();
+    container.innerHTML = "";
+
+    if(offers.length === 0) { container.innerHTML = "Δεν βρέθηκαν οδηγοί."; return; }
+
+    if (!map) {
+        map = L.map('map');
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    }
+    const pickup = [offers[0].pickup_latitude, offers[0].pickup_longitude];
+    const dropoff = [offers[0].dropoff_latitude, offers[0].dropoff_longitude];
+    
+    map.eachLayer(layer => { if(layer instanceof L.Marker || layer instanceof L.Polyline) layer.remove(); });
+    
+    L.marker(pickup).addTo(map).bindPopup("Start").openPopup();
+    L.marker(dropoff).addTo(map).bindPopup("End");
+    L.polyline([pickup, dropoff], {color: 'black', dashArray: '5, 10'}).addTo(map);
+    
+    const colors = ['blue', 'red', 'green'];
+    offers.forEach((offer, i) => {
+        const color = colors[i % colors.length];
+        const offset = (Math.random()-0.5)*0.02;
+        const driverPos = [pickup[0]+offset, pickup[1]+offset];
+        
+        L.circleMarker(driverPos, {color, fillColor:color, radius:8}).addTo(map);
+        L.polyline([driverPos, pickup], {color, weight:4, opacity:0.7}).addTo(map);
+
+        const card = document.createElement('div');
+        card.style = `border:1px solid #ccc; border-top:5px solid ${color}; padding:10px; border-radius:5px; width:200px;`;
+        card.innerHTML = `<h4>${offer.DriverName}</h4><p>${offer.VehicleModel}</p><p>€${offer.estimated_cost}</p>`;
+        
+        const btn = document.createElement('button');
+        btn.innerText = "Επιλογή";
+        btn.style = `width:100%; background:${color}; color:white; border:none; padding:5px; cursor:pointer;`;
+        btn.onclick = () => acceptOffer(offer.offer_id, requestId);
+        
+        card.appendChild(btn);
+        container.appendChild(card);
+    });
+
+    map.fitBounds(L.polyline([pickup, dropoff]).getBounds(), {padding:[50,50]});
+    setTimeout(() => map.invalidateSize(), 100);
+}
+
+async function acceptOffer(offerId, requestId) {
+    if(!confirm("Αποδοχή;")) return;
+    await fetch('/api/app/passenger/accept-offer', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({offerId, requestId})
+    });
+    alert("Καλό ταξίδι!");
+    document.getElementById('offers-section').classList.add('hidden');
+    loadPassengerHistory();
+}
+
+// --- 5. CORE FETCH LOGIC ---
+
+function resetView() {
+    document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
+    document.getElementById('request-form')?.classList.add('hidden');
+    document.getElementById('offers-section')?.classList.add('hidden');
+    document.getElementById('document-form')?.classList.add('hidden');
+}
 
 async function fetchData(endpoint) {
     const tableHead = document.querySelector("#data-table thead");
@@ -121,15 +296,15 @@ async function fetchData(endpoint) {
 
     try {
         const response = await fetch(endpoint);
+        if (!response.ok) throw new Error("Network response was not ok"); // Catch 404s
         const data = await response.json();
 
-        // Φίλτρο για να κρύβουμε τα απορριφθέντα αιτήματα του οδηγού
+        // Filter out ignored requests
         const ignored = JSON.parse(sessionStorage.getItem('ignoredRequests') || "[]");
-        const filteredData = data.filter(row => !ignored.includes(row.request_id));
+        const filteredData = data.filter ? data.filter(row => !ignored.includes(row.request_id)) : data;
 
         if (filteredData.length > 0) {
             const headers = Object.keys(filteredData[0]);
-            
             const headerRow = document.createElement("tr");
             headers.forEach(key => {
                 const th = document.createElement("th");
@@ -196,165 +371,4 @@ async function fetchData(endpoint) {
     } finally {
         loading.classList.add('hidden');
     }
-}
-
-// --- 4. ADMIN & PASSENGER & HELPER FUNCTIONS ---
-
-async function loadReport(type) {
-    document.getElementById('table-title').innerText = type === 'cost' ? 'Ανάλυση Κόστους' : 'Απόδοση Οδηγών';
-    resetView();
-    fetchData(`/api/app/reports/${type}`);
-}
-
-async function loadPendingDocuments() {
-    document.getElementById('table-title').innerText = 'Έγγραφα προς Έλεγχο';
-    resetView();
-    fetchData('/api/admin/pending-documents');
-}
-
-async function verifyDocument(docId, status) {
-    const comments = prompt(`Σχόλια (${status}):`, "OK");
-    if (!comments) return;
-    try {
-        await fetch('/api/admin/verify-document', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ docId, status, comments })
-        });
-        alert("Ενημερώθηκε!"); loadPendingDocuments();
-    } catch(e) { console.error(e); }
-}
-
-async function loadAvailability() {
-    const currentUser = sessionStorage.getItem('currentUser');
-    document.getElementById('table-title').innerText = 'Η Διαθεσιμότητά μου';
-    resetView();
-    fetchData(`/api/app/driver/availability/${currentUser}`);
-}
-
-function showUploadForm() {
-    document.getElementById('table-title').innerText = 'Υποβολή Εγγράφου';
-    resetView();
-    document.getElementById('document-form').classList.remove('hidden');
-}
-
-async function submitDocument() {
-    const currentUser = sessionStorage.getItem('currentUser');
-    const docData = {
-        username: currentUser,
-        docType: document.getElementById('doc-type').value,
-        docNumber: document.getElementById('doc-number').value,
-        fileUrl: document.getElementById('doc-url').value,
-        issueDate: document.getElementById('doc-issue').value,
-        expiryDate: document.getElementById('doc-expiry').value
-    };
-    try {
-        await fetch('/api/app/driver/upload-document', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(docData)
-        });
-        alert("Εστάλη!"); document.getElementById('document-form').classList.add('hidden');
-    } catch(e) { alert("Σφάλμα."); }
-}
-
-function showRequestForm() {
-    document.getElementById('table-title').innerText = 'Νέα Διαδρομή';
-    resetView();
-    document.getElementById('request-form').classList.remove('hidden');
-}
-
-async function submitRequest() {
-    const currentUser = sessionStorage.getItem('currentUser');
-    try {
-        const response = await fetch('/api/app/passenger/request', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                username: currentUser, 
-                serviceId: document.getElementById('service-select').value, 
-                notes: document.getElementById('request-notes').value 
-            })
-        });
-        if (response.ok) {
-            const res = await response.json();
-            alert("Αίτημα εστάλη!"); loadOffers(res.requestId);
-        }
-    } catch(e) { console.error(e); }
-}
-
-async function loadPassengerHistory() {
-    const currentUser = sessionStorage.getItem('currentUser');
-    document.getElementById('table-title').innerText = 'Ιστορικό';
-    resetView();
-    fetchData(`/api/app/passenger/history/${currentUser}`);
-}
-
-
-async function loadOffers(requestId) {
-    resetView();
-    document.getElementById('offers-section').classList.remove('hidden');
-    const container = document.getElementById('offers-container');
-    container.innerHTML = "Αναζήτηση οδηγών...";
-
-    const response = await fetch(`/api/app/passenger/offers/${requestId}`);
-    const offers = await response.json();
-    container.innerHTML = "";
-
-    if(offers.length === 0) { container.innerHTML = "Δεν βρέθηκαν οδηγοί."; return; }
-
-    if (!map) {
-        map = L.map('map');
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    }
-    const pickup = [offers[0].pickup_latitude, offers[0].pickup_longitude];
-    const dropoff = [offers[0].dropoff_latitude, offers[0].dropoff_longitude];
-    
-    map.eachLayer(layer => { if(layer instanceof L.Marker || layer instanceof L.Polyline) layer.remove(); });
-    
-    L.marker(pickup).addTo(map).bindPopup("Start").openPopup();
-    L.marker(dropoff).addTo(map).bindPopup("End");
-    L.polyline([pickup, dropoff], {color: 'black', dashArray: '5, 10'}).addTo(map);
-    
-    const colors = ['blue', 'red', 'green'];
-    offers.forEach((offer, i) => {
-        const color = colors[i % colors.length];
-        const offset = (Math.random()-0.5)*0.02;
-        const driverPos = [pickup[0]+offset, pickup[1]+offset];
-        
-        L.circleMarker(driverPos, {color, fillColor:color, radius:8}).addTo(map);
-        L.polyline([driverPos, pickup], {color, weight:4, opacity:0.7}).addTo(map);
-
-        const card = document.createElement('div');
-        card.style = `border:1px solid #ccc; border-top:5px solid ${color}; padding:10px; border-radius:5px; width:200px;`;
-        card.innerHTML = `<h4>${offer.DriverName}</h4><p>${offer.VehicleModel}</p><p>€${offer.estimated_cost}</p>`;
-        
-        const btn = document.createElement('button');
-        btn.innerText = "Επιλογή";
-        btn.style = `width:100%; background:${color}; color:white; border:none; padding:5px; cursor:pointer;`;
-        btn.onclick = () => acceptOffer(offer.offer_id, requestId);
-        
-        card.appendChild(btn);
-        container.appendChild(card);
-    });
-
-    map.fitBounds(L.polyline([pickup, dropoff]).getBounds(), {padding:[50,50]});
-    setTimeout(() => map.invalidateSize(), 100);
-}
-
-function closeOffers() { document.getElementById('offers-section').classList.add('hidden'); }
-
-async function acceptOffer(offerId, requestId) {
-    if(!confirm("Αποδοχή;")) return;
-    await fetch('/api/app/passenger/accept-offer', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({offerId, requestId})
-    });
-    alert("Καλό ταξίδι!");
-    document.getElementById('offers-section').classList.add('hidden');
-    loadPassengerHistory();
-}
-
-function resetView() {
-    document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
-    document.getElementById('request-form')?.classList.add('hidden');
-    document.getElementById('offers-section')?.classList.add('hidden');
-    document.getElementById('document-form')?.classList.add('hidden');
 }

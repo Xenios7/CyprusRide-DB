@@ -93,12 +93,54 @@ namespace OSRH.Api.Controllers
         }
 
         // Helper: Μετατροπή DataTable σε JSON List για το frontend
+// Helper Method (ΔΙΟΡΘΩΜΕΝΗ ΓΙΑ ΑΣΦΑΛΕΙΑ DATE/TIME)
+// Helper Method (ΔΙΟΡΘΩΜΕΝΗ)
         private List<Dictionary<string, object>> ConvertDataTableToDict(DataTable dt)
         {
             var columns = dt.Columns.Cast<DataColumn>();
-            return dt.AsEnumerable().Select(dataRow => columns.Select(column =>
-                new { column.ColumnName, Value = dataRow[column] })
-                .ToDictionary(data => data.ColumnName, data => data.Value)).ToList();
+            return dt.AsEnumerable().Select(dataRow => 
+                columns.ToDictionary(
+                    column => column.ColumnName, 
+                    column => // <--- ΔΙΟΡΘΩΣΗ: Μετονομάστηκε από 'data' σε 'column'
+                    {
+                        var value = dataRow[column]; // Τώρα το 'column' αναγνωρίζεται σωστά
+                        
+                        // Ελέγχουμε για NULL
+                        if (value is DBNull) return null;
+                        
+                        // ΕΛΕΓΧΟΣ DATE/TIME: Μετατρέπουμε σε string για να αποφύγουμε JSON errors
+                        if (value is DateTime dtValue) return dtValue.ToString("yyyy-MM-dd HH:mm:ss"); 
+                        
+                        // Επιστροφή άλλων τύπων ως έχουν
+                        return value;
+                    }
+                )
+            ).ToList();
+        }
+
+        // 10. DRIVER: Get Availability
+        [HttpGet("driver/availability/{username}")]
+        public async Task<IActionResult> GetDriverAvailability(string username)
+        {
+            // Βρίσκουμε το ID του οδηγού από το username και επιστρέφουμε τη διαθεσιμότητα
+            string sql = @"
+                SELECT DA.weekday, DA.start_time, DA.end_time, DA.status, DA.notes
+                FROM dbo.DRIVER_AVAILABILITY DA
+                JOIN dbo.DRIVER D ON DA.driver_id = D.driver_id
+                JOIN dbo.[USER] U ON D.user_id = U.user_id
+                WHERE U.username = @u
+                ORDER BY DA.weekday";
+
+            var dt = await _db.LoadDataAsync(sql, new[] { new SqlParameter("@u", username) });
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // 11. ADMIN: Get Pending Documents (Using existing View)
+        [HttpGet("admin/pending-documents")]
+        public async Task<IActionResult> GetPendingDocuments()
+        {
+            var dt = await _db.LoadDataAsync("SELECT * FROM dbo.v_PendingDocuments");
+            return Ok(ConvertDataTableToDict(dt));
         }
         // 5. PASSENGER: Create New Request
  // 5. PASSENGER: Create New Request (Διορθωμένη για να επιστρέφει το ID)
