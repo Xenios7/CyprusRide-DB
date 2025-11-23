@@ -72,27 +72,73 @@
         <p id="login-msg" style="color:red; margin-top:10px; font-size:0.9em;"></p>
     </div>
 
-    <div id="dashboard-section" class="hidden">
-        <div class="nav-buttons">
-            <h3>Καλωσήρθες, <span id="user-display" style="color:#007bff;"></span></h3>
-            <button onclick="logout()" class="logout">Έξοδος</button>
+<div id="dashboard-section" class="hidden">
+    <div class="nav-buttons">
+        <h3>Καλωσήρθες, <span id="user-display" style="color:#007bff;"></span></h3>
+        <button onclick="logout()" class="logout">Έξοδος</button>
+    </div>
+
+    <div class="action-buttons">
+        <div id="admin-features" class="hidden">
+            <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
+            <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
+            <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>
+        </div>
+        
+        <div id="driver-features" class="hidden">
+            <button onclick="loadOpenRequests()">Ανοιχτά Αιτήματα (Οδηγός)</button>
+            <button onclick="loadAvailability()" style="background-color: #17a2b8;">Η Διαθεσιμότητά μου</button>
+            <button onclick="showUploadForm()" style="background-color: #6f42c1;">Υποβολή Εγγράφου</button>
         </div>
 
-        <div class="action-buttons">
-                    <div id="admin-features" class="hidden">
-                        <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
-                        <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
-                    </div>
-                    
-                    <div id="driver-features" class="hidden">
-                        <button onclick="loadOpenRequests()">Ανοιχτά Αιτήματα (Οδηγός)</button>
-                    </div>
-
-                    <div id="passenger-features" class="hidden">
-                        <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
-                        <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
-                    </div>
+        <div id="passenger-features" class="hidden">
+            <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
+            <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
         </div>
+    </div>
+    
+    <div id="offers-section" class="hidden" style="margin-top: 20px;">
+        <h3>Διαθέσιμες Επιλογές & Χάρτης Διαδρομής</h3>
+        <div id="map" style="height: 300px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;"></div>
+        <div id="offers-container" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
+        <button onclick="closeOffers()" style="margin-top:10px; background-color:#6c757d;">Κλείσιμο Προσφορών</button>
+    </div>
+    
+    <div id="request-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <h3>Αίτημα Διαδρομής</h3>
+        <label>Υπηρεσία:</label>
+        <select id="service-select">
+            <option value="1">Standard</option><option value="2">Premium</option>
+            <option value="3">Delivery</option><option value="4">XL</option>
+        </select>
+        <br><br>
+        <label>Σημειώσεις:</label>
+        <input type="text" id="request-notes" placeholder="π.χ. Περιμένω στη γωνία">
+        <button onclick="submitRequest()" style="margin-top: 10px;">Αποστολή Αιτήματος</button>
+    </div>
+
+    <div id="document-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fdfdfd;">
+        <h3>Υποβολή Νέου Εγγράφου</h3>
+        <label>Τύπος Εγγράφου:</label>
+        <select id="doc-type"><option value="Driving License">Άδεια Οδήγησης</option><option value="Identity Card">Ταυτότητα</option><option value="Medical Certificate">Ιατρικό Πιστοποιητικό</option></select>
+        <label>Αριθμός Εγγράφου:</label><input type="text" id="doc-number" placeholder="π.χ. A1234567">
+        <label>Link Αρχείου (URL):</label><input type="text" id="doc-url" placeholder="https://docs.osrh-project.com/lic/v2.pdf">
+        <label>Ημ. Έκδοσης:</label><input type="date" id="doc-issue">
+        <label>Ημ. Λήξης:</label><input type="date" id="doc-expiry">
+        <button onclick="submitDocument()" style="margin-top: 10px; background-color: #28a745;">Υποβολή</button>
+    </div>
+
+
+    <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
+    <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
+    
+    <div class="table-container">
+        <table id="data-table">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
         
         <div id="request-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
             <h3>Αίτημα Διαδρομής</h3>
