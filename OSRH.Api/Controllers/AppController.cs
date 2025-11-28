@@ -175,31 +175,28 @@ namespace OSRH.Api.Controllers
         // --- NEW DRIVER FEATURES (ADDED AND FIXED) ---
 
         // 14. DRIVER: Add Availability (WRITE)
-        [HttpPost("driver/add-availability")]
-        public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
-        {
-            try
-            {
-                var parameters = new[] {
-                    new SqlParameter("@Username", data["username"]?.ToString()),
-                    new SqlParameter("@Weekday", int.Parse(data["weekday"]?.ToString() ?? "1")),
-                    new SqlParameter("@StartTime", TimeSpan.Parse(data["start"]?.ToString() ?? "09:00")),
-                    new SqlParameter("@EndTime", TimeSpan.Parse(data["end"]?.ToString() ?? "17:00")),
-                    new SqlParameter("@Notes", "Web App")
-                };
-                
-                // Using ExecuteAsync because we don't need a DataTable back, just success
-                // Note: The SP returns a SELECT, so LoadDataAsync is safer to consume the result message
-                var dt = await _db.LoadDataAsync("dbo.sp_AddDriverAvailability", parameters, CommandType.StoredProcedure);
-                
-                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) 
-                    return Ok(new { message = "Shift added!" });
-                
-                return BadRequest(new { message = "Error adding shift." });
-            }
-            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
-        }
-
+[HttpPost("driver/add-availability")]
+public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
+{
+    try
+    {
+        var parameters = new[] {
+            new SqlParameter("@Username", data["username"]?.ToString()),
+            new SqlParameter("@Weekday", int.Parse(data["weekday"]?.ToString() ?? "1")),
+            new SqlParameter("@StartTime", TimeSpan.Parse(data["start"]?.ToString() ?? "09:00")),
+            new SqlParameter("@EndTime", TimeSpan.Parse(data["end"]?.ToString() ?? "17:00")),
+            new SqlParameter("@Notes", "Web App")
+        };
+        
+        var dt = await _db.LoadDataAsync("dbo.sp_AddDriverAvailability", parameters, CommandType.StoredProcedure);
+        
+        if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) 
+            return Ok(new { message = "Shift added!" });
+        
+        return BadRequest(new { message = "Error adding shift." });
+    }
+    catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+}
         // 15. DRIVER: Get Active Trip
         [HttpGet("driver/active-trip/{username}")]
         public async Task<IActionResult> GetActiveTrip(string username)

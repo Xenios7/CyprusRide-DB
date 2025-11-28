@@ -7,51 +7,28 @@
     <style>
         body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background-color: #f4f4f9; }
         .container { max-width: 1200px; margin: auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-        h1, h2 { color: #333; }
+        h1, h2, h3 { color: #333; }
         
-        /* Login Styles */
         #login-section { max-width: 350px; margin: 50px auto; text-align: center; padding: 40px; border: 1px solid #eee; border-radius: 8px; }
-        input { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
-        /* Buttons */
         .nav-buttons { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
-        
-        /* --- ΔΙΟΡΘΩΣΗ: Αφαιρέθηκε ο HTML κώδικας από εδώ --- */
-        .action-buttons { 
-            display: flex; 
-            gap: 10px; 
-            flex-wrap: wrap; 
-        }
+        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
         
         button { padding: 10px 20px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.3s; }
         button:hover { background-color: #0056b3; }
         button.logout { background-color: #dc3545; }
         button.logout:hover { background-color: #a71d2a; }
 
-        /* Table Styles - RESPONSIVE FIX */
-        .table-container {
-            width: 100%;
-            overflow-x: auto; /* Επιτρέπει οριζόντιο scroll αν ο πίνακας είναι μεγάλος */
-            margin-top: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        table { 
-            width: 100%; 
-            border-collapse: collapse; 
-            min-width: 800px; /* Ελάχιστο πλάτος για να μην στριμώχνονται τα δεδομένα */
-        }
-        
-        th, td { 
-            padding: 12px 15px; 
-            text-align: left; 
-            border-bottom: 1px solid #ddd; 
-            white-space: nowrap; /* Κρατάει το κείμενο σε μία γραμμή */
-        }
-        
+        .table-container { width: 100%; overflow-x: auto; margin-top: 20px; border: 1px solid #ddd; border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #ddd; white-space: nowrap; }
         th { background-color: #f8f9fa; font-weight: 600; color: #333; }
         tr:hover { background-color: #f1f1f1; }
+        
+        .card { background: #fdfdfd; padding: 20px; margin-top: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
         
         .hidden { display: none; }
         #loading { font-style: italic; color: #666; margin: 10px 0; }
@@ -59,11 +36,11 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 </head>
 <body>
 
 <div class="container">
+    <!-- LOGIN -->
     <div id="login-section">
         <h1>OSRH Login</h1>
         <input type="text" id="username" placeholder="Όνομα Χρήστη (π.χ. sophia_admin)">
@@ -72,168 +49,47 @@
         <p id="login-msg" style="color:red; margin-top:10px; font-size:0.9em;"></p>
     </div>
 
-<div id="dashboard-section" class="hidden">
-    <div class="nav-buttons">
-        <h3>Καλωσήρθες, <span id="user-display" style="color:#007bff;"></span></h3>
-        <button onclick="logout()" class="logout">Έξοδος</button>
-    </div>
-
-    <div class="action-buttons">
-        <div id="admin-features" class="hidden">
-            <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
-            <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
+    <!-- DASHBOARD -->
+    <div id="dashboard-section" class="hidden">
+        <div class="nav-buttons">
+            <h3>Καλωσήρθες, <span id="user-display" style="color:#007bff;"></span></h3>
+            <button onclick="logout()" class="logout">Έξοδος</button>
         </div>
 
-        <div id="operator-features" class="hidden">
-            <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>
-        </div>
-        
-        <div id="driver-features" class="hidden">
-            <div class="button-container" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
-                <button onclick="loadOpenRequests()" class="btn-primary">Διαθέσιμα Αιτήματα</button>
-                <button onclick="loadAvailability()" class="btn-secondary">Η Διαθεσιμότητά μου</button>
-                <button onclick="showUploadForm()" class="btn-warning">Υποβολή Εγγράφου</button>
-                
-                <button onclick="showAddShiftForm()" class="btn-info" style="background-color: #17a2b8; color: white;">➕ Προσθήκη Βάρδιας</button>
-                <button onclick="showActiveTripScreen()" class="btn-success" style="background-color: #28a745; color: white;">🚗 Τρέχουσα Διαδρομή</button>
+        <!-- ROLE BUTTONS -->
+        <div class="action-buttons">
+            <div id="admin-features" class="hidden">
+                <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
+                <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
+            </div>
+
+            <div id="operator-features" class="hidden">
+                <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>
+            </div>
+            
+            <div id="driver-features" class="hidden">
+                <button onclick="loadOpenRequests()">Διαθέσιμα Αιτήματα (Οδηγός)</button>
+                <button onclick="loadAvailability()" style="background-color: #17a2b8;">Η Διαθεσιμότητά μου</button>
+                <button onclick="showUploadForm()" style="background-color: #ffc107;">Υποβολή Εγγράφου</button>
+                <button onclick="showAddShiftForm()" style="background-color: #28a745;">➕ Προσθήκη Βάρδιας</button>
+            </div>
+
+            <div id="passenger-features" class="hidden">
+                <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
+                <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
             </div>
         </div>
 
-<div id="add-shift-form" class="hidden form-container">
-    <div class="card" style="max-width: 400px; margin: 0 auto;">
-        <h3 style="margin-top:0;">Προσθήκη Νέας Βάρδιας</h3>
+        <!-- OFFERS SECTION (for passengers) -->
+        <div id="offers-section" class="hidden" style="margin-top: 20px;">
+            <h3>Διαθέσιμες Επιλογές & Χάρτης Διαδρομής</h3>
+            <div id="map" style="height: 300px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;"></div>
+            <div id="offers-container" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
+            <button onclick="closeOffers()" style="margin-top:10px; background-color:#6c757d;">Κλείσιμο Προσφορών</button>
+        </div>
         
-        <div class="form-group">
-            <label>Ημέρα:</label>
-            <select id="shift-day" class="form-control">
-                <option value="1">Δευτέρα</option>
-                <option value="2">Τρίτη</option>
-                <option value="3">Τετάρτη</option>
-                <option value="4">Πέμπτη</option>
-                <option value="5">Παρασκευή</option>
-                <option value="6">Σάββατο</option>
-                <option value="7">Κυριακή</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label>Ώρα Έναρξης:</label>
-            <input type="time" id="shift-start" value="09:00" class="form-control">
-        </div>
-
-        <div class="form-group">
-            <label>Ώρα Λήξης:</label>
-            <input type="time" id="shift-end" value="17:00" class="form-control">
-        </div>
-
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-            <button onclick="submitShift()" class="btn-primary" style="flex:1;">Αποθήκευση</button>
-            <button onclick="loadAvailability()" class="btn-secondary" style="flex:1;">Ακύρωση</button>
-        </div>
-    </div>
-</div>
-
-<!-- <div id="active-trip-screen" class="hidden form-container">
-    <div class="card" style="max-width: 500px; margin: 0 auto; text-align:center;">
-        <h3 style="margin-top:0;">Διαχείριση Διαδρομής</h3>
-        
-        <div id="active-trip-content" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
-            Scanning for active trips...
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="btn-start-trip" class="btn-success hidden" style="padding: 10px 20px;">🚀 Εκκίνηση</button>
-            <button id="btn-end-trip" class="btn-danger hidden" style="padding: 10px 20px;">🏁 Ολοκλήρωση</button>
-            <button onclick="resetView()" class="btn-secondary">Κλείσιμο</button>
-        </div>
-    </div>
-</div> -->
-
-        <div class="card">
-    <h3>Προσθήκη Βάρδιας</h3>
-    <div class="form-group">
-        <label>Ημέρα (1=Δευ, 7=Κυρ):</label>
-        <input type="number" id="avail-day" min="1" max="7" value="1">
-    </div>
-    <div class="form-group">
-        <label>Ώρα Έναρξης:</label>
-        <input type="time" id="avail-start" value="09:00">
-    </div>
-    <div class="form-group">
-        <label>Ώρα Λήξης:</label>
-        <input type="time" id="avail-end" value="17:00">
-    </div>
-    <button onclick="addDriverAvailability()" class="btn-primary">Προσθήκη</button>
-</div>
-
-<div class="card" id="active-trip-card" class="hidden">
-    <h3>Τρέχουσα Διαδρομή</h3>
-    <div id="active-trip-info">Scanning...</div>
-    <button id="btn-start-trip" class="btn-primary hidden">Εκκίνηση Διαδρομής</button>
-    <button id="btn-end-trip" class="btn-danger hidden">Ολοκλήρωση Διαδρομής</button>
-</div>
-
-        <div id="passenger-features" class="hidden">
-            <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
-            <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
-        </div>
-    </div>
-    
-    <div id="offers-section" class="hidden" style="margin-top: 20px;">
-        <h3>Διαθέσιμες Επιλογές & Χάρτης Διαδρομής</h3>
-        <div id="map" style="height: 300px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;"></div>
-        <div id="offers-container" style="display: flex; gap: 15px; flex-wrap: wrap;"></div>
-        <button onclick="closeOffers()" style="margin-top:10px; background-color:#6c757d;">Κλείσιμο Προσφορών</button>
-    </div>
-    
-    <div id="request-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
-        <h3>Αίτημα Διαδρομής</h3>
-        <label>Υπηρεσία:</label>
-        <select id="service-select">
-            <option value="1">Standard</option><option value="2">Premium</option>
-            <option value="3">Delivery</option><option value="4">XL</option>
-        </select>
-        <br><br>
-        <label>Σημειώσεις:</label>
-        <input type="text" id="request-notes" placeholder="π.χ. Περιμένω στη γωνία">
-        <button onclick="submitRequest()" style="margin-top: 10px;">Αποστολή Αιτήματος</button>
-    </div>
-
-    <div id="driver-features" class="hidden">
-    <div class="button-container">
-        <button onclick="loadOpenRequests()" class="btn-primary">Διαθέσιμα Αιτήματα</button>
-        <button onclick="loadAvailability()" class="btn-secondary">Η Διαθεσιμότητά μου</button>
-        <button onclick="showUploadForm()" class="btn-warning">Υποβολή Εγγράφου</button>
-        
-        <button onclick="showAddShiftForm()" class="btn-info">Προσθήκη Βάρδιας</button>
-        <button onclick="showActiveTripScreen()" class="btn-success">Τρέχουσα Διαδρομή</button>
-    </div>
-</div>
-
-    <div id="document-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fdfdfd;">
-        <h3>Υποβολή Νέου Εγγράφου</h3>
-        <label>Τύπος Εγγράφου:</label>
-        <select id="doc-type"><option value="Driving License">Άδεια Οδήγησης</option><option value="Identity Card">Ταυτότητα</option><option value="Medical Certificate">Ιατρικό Πιστοποιητικό</option></select>
-        <label>Αριθμός Εγγράφου:</label><input type="text" id="doc-number" placeholder="π.χ. A1234567">
-        <label>Link Αρχείου (URL):</label><input type="text" id="doc-url" placeholder="https://docs.osrh-project.com/lic/v2.pdf">
-        <label>Ημ. Έκδοσης:</label><input type="date" id="doc-issue">
-        <label>Ημ. Λήξης:</label><input type="date" id="doc-expiry">
-        <button onclick="submitDocument()" style="margin-top: 10px; background-color: #28a745;">Υποβολή</button>
-    </div>
-
-
-    <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
-    <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
-    
-    <div class="table-container">
-        <table id="data-table">
-            <thead></thead>
-            <tbody></tbody>
-        </table>
-    </div>
-</div>
-        
-        <div id="request-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px;">
+        <!-- PASSENGER REQUEST FORM -->
+        <div id="request-form" class="hidden card">
             <h3>Αίτημα Διαδρομής</h3>
             <label>Υπηρεσία:</label>
             <select id="service-select">
@@ -242,55 +98,64 @@
                 <option value="3">Delivery</option>
                 <option value="4">XL</option>
             </select>
-            <br><br>
             <label>Σημειώσεις:</label>
             <input type="text" id="request-notes" placeholder="π.χ. Περιμένω στη γωνία">
-            <br>
             <button onclick="submitRequest()" style="margin-top: 10px;">Αποστολή Αιτήματος</button>
-            <button onclick="document.getElementById('request-form').classList.add('hidden')" style="background-color: #6c757d;">Ακύρωση</button>
+            <button onclick="document.getElementById('request-form').classList.add('hidden')" style="background-color: #6c757d; margin-top: 10px;">Ακύρωση</button>
         </div>
 
-        <div id="add-shift-form" class="hidden form-container">
-    <div class="card">
-        <h3>Προσθήκη Νέας Βάρδιας</h3>
-        <div class="form-group">
-            <label>Ημέρα (1=Δευτέρα ... 7=Κυριακή):</label>
-            <input type="number" id="shift-day" min="1" max="7" value="1" class="form-control">
-        </div>
-        <div class="form-group">
-            <label>Ώρα Έναρξης:</label>
-            <input type="time" id="shift-start" value="09:00" class="form-control">
-        </div>
-        <div class="form-group">
-            <label>Ώρα Λήξης:</label>
-            <input type="time" id="shift-end" value="17:00" class="form-control">
-        </div>
-        <button onclick="submitShift()" class="btn-primary" style="margin-top:10px;">Αποθήκευση</button>
-        <button onclick="resetView()" class="btn-secondary" style="margin-top:10px;">Ακύρωση</button>
-    </div>
-</div>
+        <!-- DRIVER: ADD SHIFT FORM -->
+        <div id="add-shift-form" class="hidden card">
+            <h3>Προσθήκη Νέας Βάρδιας</h3>
+            
+            <div class="form-group">
+                <label>Ημέρα:</label>
+                <select id="shift-day" class="form-control">
+                    <option value="1">Δευτέρα</option>
+                    <option value="2">Τρίτη</option>
+                    <option value="3">Τετάρτη</option>
+                    <option value="4">Πέμπτη</option>
+                    <option value="5">Παρασκευή</option>
+                    <option value="6">Σάββατο</option>
+                    <option value="7">Κυριακή</option>
+                </select>
+            </div>
 
-<!-- <div id="active-trip-screen" class="hidden form-container">
-    <div class="card" style="text-align:center;">
-        <div id="active-trip-content">
-            Scanning for active trips...
-        </div>
-        <br>
-        <button id="btn-start-trip" class="btn-success hidden" style="width:100%; padding:15px; font-size:1.2em;">🚀 Εκκίνηση Διαδρομής</button>
-        <button id="btn-end-trip" class="btn-danger hidden" style="width:100%; padding:15px; font-size:1.2em;">🏁 Ολοκλήρωση Διαδρομής</button>
-    </div>
-</div> -->
-        <div id="offers-section" class="hidden" style="margin-top: 20px;">
-            <h3>Διαθέσιμες Επιλογές & Χάρτης Διαδρομής</h3>
+            <div class="form-group">
+                <label>Ώρα Έναρξης:</label>
+                <input type="time" id="shift-start" value="09:00">
+            </div>
 
-            <div id="map" style="height: 300px; width: 100%; margin-bottom: 15px; border-radius: 8px; border: 1px solid #ccc;"></div>
+            <div class="form-group">
+                <label>Ώρα Λήξης:</label>
+                <input type="time" id="shift-end" value="17:00">
+            </div>
 
-            <div id="offers-container" style="display: flex; gap: 15px; flex-wrap: wrap;">
-                </div>
-            <button onclick="closeOffers()" style="margin-top:10px; background-color:#6c757d;">Κλείσιμο</button>
+            <button onclick="submitShift()" style="background-color: #28a745;">Αποθήκευση</button>
+            <button onclick="document.getElementById('add-shift-form').classList.add('hidden')" style="background-color: #6c757d; margin-left: 10px;">Ακύρωση</button>
         </div>
 
+        <!-- DRIVER: DOCUMENT UPLOAD FORM -->
+        <div id="document-form" class="hidden card">
+            <h3>Υποβολή Νέου Εγγράφου</h3>
+            <label>Τύπος Εγγράφου:</label>
+            <select id="doc-type">
+                <option value="Driving License">Άδεια Οδήγησης</option>
+                <option value="Identity Card">Ταυτότητα</option>
+                <option value="Medical Certificate">Ιατρικό Πιστοποιητικό</option>
+            </select>
+            <label>Αριθμός Εγγράφου:</label>
+            <input type="text" id="doc-number" placeholder="π.χ. A1234567">
+            <label>Link Αρχείου (URL):</label>
+            <input type="text" id="doc-url" placeholder="https://docs.osrh-project.com/lic/v2.pdf">
+            <label>Ημ. Έκδοσης:</label>
+            <input type="date" id="doc-issue">
+            <label>Ημ. Λήξης:</label>
+            <input type="date" id="doc-expiry">
+            <button onclick="submitDocument()" style="margin-top: 10px; background-color: #28a745;">Υποβολή</button>
+        </div>
 
+        <!-- DATA TABLE -->
         <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
         <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
         
@@ -306,19 +171,3 @@
 <script src="js/site.js"></script>
 </body>
 </html>
-
-<div id="active-trip-screen" class="hidden form-container" style="display:none;">
-        <div class="card" style="max-width: 500px; margin: 0 auto; text-align:center;">
-        <h3 style="margin-top:0;">Διαχείριση Διαδρομής</h3>
-        
-        <div id="active-trip-content" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
-            Scanning for active trips...
-        </div>
-
-        <div style="display: flex; gap: 10px; justify-content: center;">
-            <button id="btn-start-trip" class="btn-success hidden" style="padding: 10px 20px;">🚀 Εκκίνηση</button>
-            <button id="btn-end-trip" class="btn-danger hidden" style="padding: 10px 20px;">🏁 Ολοκλήρωση</button>
-            <button onclick="resetView()" class="btn-secondary">Κλείσιμο</button>
-        </div>
-    </div>
-</div>
