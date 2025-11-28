@@ -82,12 +82,16 @@
         <div id="admin-features" class="hidden">
             <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
             <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
+        </div>
+
+        <div id="operator-features" class="hidden">
             <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>
         </div>
         
         <div id="driver-features" class="hidden">
             <button onclick="loadOpenRequests()">Ανοιχτά Αιτήματα (Οδηγός)</button>
             <button onclick="loadAvailability()" style="background-color: #17a2b8;">Η Διαθεσιμότητά μου</button>
+            <button onclick="showUploadForm()" style="background-color: #28a745;">Υποβολή Εγγράφου</button>
         </div>
 
         <div id="passenger-features" class="hidden">

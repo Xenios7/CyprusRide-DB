@@ -51,13 +51,13 @@ public async Task<IActionResult> Login([FromBody] JsonObject loginData)
     }
 
     // Login Valid - Return Data
-    string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"].ToString() : "";
+    string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"]?.ToString() ?? "" : "";
     List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
 
     return Ok(new 
     { 
-        username = row["Username"].ToString(), 
-        name = row["Name"].ToString(),
+        username = row["Username"]?.ToString() ?? "", 
+        name = row["Name"]?.ToString() ?? "",   
         roles = roleList
     });
 }
@@ -91,7 +91,7 @@ public async Task<IActionResult> Login([FromBody] JsonObject loginData)
         // Helper: Μετατροπή DataTable σε JSON List για το frontend
 // Helper Method (ΔΙΟΡΘΩΜΕΝΗ ΓΙΑ ΑΣΦΑΛΕΙΑ DATE/TIME)
 // Helper Method (ΔΙΟΡΘΩΜΕΝΗ)
-        private List<Dictionary<string, object>> ConvertDataTableToDict(DataTable dt)
+        private List<Dictionary<string, object?>> ConvertDataTableToDict(DataTable dt)
         {
             var columns = dt.Columns.Cast<DataColumn>();
             return dt.AsEnumerable().Select(dataRow => 
@@ -132,7 +132,8 @@ public async Task<IActionResult> Login([FromBody] JsonObject loginData)
         }
 
         // 11. ADMIN: Get Pending Documents (Using existing View)
-        [HttpGet("admin/pending-documents")]
+        // [Authorize(Roles = "Operator")] 
+        [HttpGet("operator/pending-documents")]
         public async Task<IActionResult> GetPendingDocuments()
         {
             var dt = await _db.LoadDataAsync("SELECT * FROM dbo.v_PendingDocuments");

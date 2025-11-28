@@ -35,19 +35,24 @@ async function login() {
     }
 }
 
+function setupDashboard(roles) {
+    if (roles.includes("Admin")) {
+        document.getElementById("admin-features").classList.remove("hidden");
+    }
+    if (roles.includes("Operator")) {
+        document.getElementById("operator-features").classList.remove("hidden");
+    }
+    if (roles.includes("Driver")) {
+        document.getElementById("driver-features").classList.remove("hidden");
+    }
+    if (roles.includes("Passenger")) {
+        document.getElementById("passenger-features").classList.remove("hidden");
+    }
+}
+
 function logout() {
     sessionStorage.clear();
     location.reload();
-}
-
-function setupDashboard(roles) {
-    document.getElementById('admin-features')?.classList.add('hidden');
-    document.getElementById('driver-features')?.classList.add('hidden');
-    document.getElementById('passenger-features')?.classList.add('hidden');
-    
-    if (roles.includes('Admin')) document.getElementById('admin-features')?.classList.remove('hidden');
-    if (roles.includes('Driver')) document.getElementById('driver-features')?.classList.remove('hidden');
-    if (roles.includes('Passenger')) document.getElementById('passenger-features')?.classList.remove('hidden');
 }
 
 // --- 2. ADMIN FUNCTIONS (ΔΙΟΡΘΩΜΕΝΕΣ URLs) ---
@@ -61,11 +66,11 @@ async function loadReport(type) {
     resetView();
     fetchData(`/api/app/reports/${type}`);
 }
-// --- Admin: Έλεγχος Εγγράφων ---
+// --- Operator: Έλεγχος Εγγράφων ---
 async function loadPendingDocuments() {
     document.getElementById('table-title').innerText = 'Έγγραφα προς Έλεγχο (Pending)';
     resetView(); // Καθαρίζει την οθόνη από χάρτες/φόρμες
-    fetchData('/api/app/admin/pending-documents');
+    fetchData('/api/app/operator/pending-documents');
 }
 
 // --- Driver: Διαθεσιμότητα ---
@@ -371,4 +376,5 @@ async function fetchData(endpoint) {
     } finally {
         loading.classList.add('hidden');
     }
+
 }
