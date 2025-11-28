@@ -18,53 +18,49 @@ namespace OSRH.Api.Controllers
         }
 
         // 1. LOGIN (Απαίτηση: Οι χρήστες πρέπει να εισάγουν κωδικό)
-        [HttpPost("login")]
-        public async Task<IActionResult> Login([FromBody] JsonObject loginData)
-        {
-            string username = loginData["username"]!.ToString();
-            string password = loginData["password"]!.ToString();
+[HttpPost("login")]
+public async Task<IActionResult> Login([FromBody] JsonObject loginData)
+{
+    string username = loginData["username"]?.ToString() ?? "";
+    string password = loginData["password"]?.ToString() ?? "";
 
-            // --- ΔΙΟΡΘΩΣΗ: Χρήση των σωστών ονομάτων στηλών (password_hash, first_name, last_name) ---
-            string authSql = "SELECT user_id, first_name, last_name, password_hash FROM dbo.[USER] WHERE username = @u";
-            
-            var userDt = await _db.LoadDataAsync(authSql, new[] { new SqlParameter("@u", username) });
+    // Call the SP using LoadDataAsync
+    var dt = await _db.LoadDataAsync(
+        "dbo.sp_LoginUser", 
+        new[] { 
+            new SqlParameter("@Username", username),
+            new SqlParameter("@Password", password)
+        }, 
+        CommandType.StoredProcedure
+    );
 
-            // Έλεγχος αν βρέθηκε ο χρήστης
-            if (userDt.Rows.Count == 0)
-            {
-                return Unauthorized(new { message = "Ο χρήστης δεν βρέθηκε." });
-            }
+    // Check if SP returned anything
+    if (dt.Rows.Count == 0)
+    {
+        return StatusCode(500, new { message = "Server Error: No response from DB." });
+    }
 
-            // Έλεγχος κωδικού (Σύγκριση με το password_hash από τη βάση)
-            string dbPassword = userDt.Rows[0]["password_hash"].ToString();
-            if (dbPassword != password)
-            {
-                return Unauthorized(new { message = "Λάθος κωδικός πρόσβασης." });
-            }
+    // Check the "Success" column from the SP
+    DataRow row = dt.Rows[0];
+    int success = Convert.ToInt32(row["Success"]);
+    string message = row["Message"].ToString();
 
-            int userId = (int)userDt.Rows[0]["user_id"];
-            string fullName = $"{userDt.Rows[0]["first_name"]} {userDt.Rows[0]["last_name"]}";
-            
-            // 2. ΕΚΤΕΛΕΣΗ SP ΓΙΑ ΤΟΥΣ ΡΟΛΟΥΣ (Logic moved to DB)
-            var roleDt = await _db.LoadDataAsync(
-                "dbo.sp_GetUserRoles", 
-                new[] { new SqlParameter("@UserId", userId) }, 
-                CommandType.StoredProcedure
-            );
+    if (success == 0)
+    {
+        return Unauthorized(new { message = message });
+    }
 
-            List<string> roles = new List<string>();
-            foreach (System.Data.DataRow row in roleDt.Rows)
-            {
-                roles.Add(row["role_name"].ToString());
-            }
-            
-            return Ok(new 
-            { 
-                username = username, 
-                name = fullName,
-                roles = roles
-            });
-        }
+    // Login Valid - Return Data
+    string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"].ToString() : "";
+    List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+
+    return Ok(new 
+    { 
+        username = row["Username"].ToString(), 
+        name = row["Name"].ToString(),
+        roles = roleList
+    });
+}
 
         // 2. REPORT: Cost Analysis (Admin)
         [HttpGet("reports/cost")]
