@@ -278,5 +278,69 @@ public async Task<IActionResult> Login([FromBody] JsonObject loginData)
             }
             return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
         }
+
+        // 12. DRIVER: Upload Document
+        [HttpPost("driver/upload-document")]
+        public async Task<IActionResult> UploadDocument([FromBody] JsonObject docData)
+        {
+            try 
+            {
+                // 1. Extract Data from JSON
+                string username = docData["username"]?.ToString() ?? "";
+                string docType = docData["docType"]?.ToString() ?? "";
+                string docNumber = docData["docNumber"]?.ToString() ?? "";
+                string fileUrl = docData["fileUrl"]?.ToString() ?? "";
+                string issueDateStr = docData["issueDate"]?.ToString() ?? "";
+                string expiryDateStr = docData["expiryDate"]?.ToString() ?? "";
+
+                // 2. SQL to Find Driver ID & Insert Document
+                // We use a subquery to get the driver_id directly from the username
+                string sql = @"
+                    DECLARE @DriverID INT;
+                    
+                    SELECT @DriverID = d.driver_id 
+                    FROM dbo.DRIVER d
+                    JOIN dbo.[USER] u ON d.user_id = u.user_id
+                    WHERE u.username = @Username;
+
+                    IF @DriverID IS NOT NULL
+                    BEGIN
+                        INSERT INTO dbo.DRIVER_DOCUMENT 
+                        (driver_id, document_type, document_number, file_url, issue_date, expiry_date, verification_status)
+                        VALUES 
+                        (@DriverID, @DocType, @DocNumber, @FileUrl, @IssueDate, @ExpiryDate, 'Pending');
+                        
+                        SELECT 1 AS Success, 'Document uploaded successfully' AS Message;
+                    END
+                    ELSE
+                    BEGIN
+                        SELECT 0 AS Success, 'Driver not found' AS Message;
+                    END";
+
+                // 3. Prepare Parameters
+                var parameters = new[] {
+                    new SqlParameter("@Username", username),
+                    new SqlParameter("@DocType", docType),
+                    new SqlParameter("@DocNumber", docNumber),
+                    new SqlParameter("@FileUrl", fileUrl),
+                    new SqlParameter("@IssueDate", DateTime.Parse(issueDateStr)),
+                    new SqlParameter("@ExpiryDate", DateTime.Parse(expiryDateStr))
+                };
+
+                // 4. Execute
+                var dt = await _db.LoadDataAsync(sql, parameters);
+                
+                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1)
+                {
+                    return Ok(new { message = "Το έγγραφο υποβλήθηκε επιτυχώς!" });
+                }
+                
+                return BadRequest(new { message = "Σφάλμα: Ο οδηγός δεν βρέθηκε." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Server Error: " + ex.Message });
+            }
+        }
     }
 }
