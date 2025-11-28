@@ -12,10 +12,10 @@
         #login-section { max-width: 350px; margin: 50px auto; text-align: center; padding: 40px; border: 1px solid #eee; border-radius: 8px; }
         input, select { width: 100%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
         
-        .nav-buttons { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;}
-        .action-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-        
-        button { padding: 10px 20px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; transition: background 0.3s; }
+        .nav-buttons { margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .action-buttons { display: flex; flex-wrap: wrap; gap: 15px 22px; margin-bottom: 25px; }
+
+        button { padding: 12px 24px; font-size: 14px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 6px; transition: background 0.3s; margin: 3px 0; }
         button:hover { background-color: #0056b3; }
         button.logout { background-color: #dc3545; }
         button.logout:hover { background-color: #a71d2a; }
@@ -59,9 +59,38 @@
         <!-- ROLE BUTTONS -->
         <div class="action-buttons">
             <div id="admin-features" class="hidden">
-                <button onclick="loadReport('cost')">Αναφορά Κόστους (Admin)</button>
-                <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών (Admin)</button>
-            </div>
+
+    <!-- REPORTS -->
+    <button onclick="loadReport('cost')">Αναφορά Κόστους</button>
+    <button onclick="loadReport('driver-performance')">Απόδοση Οδηγών</button>
+    <button onclick="loadRouteStatistics()">Στατιστικά Διαδρομών</button>
+    <button onclick="loadDriverIncome()">Έσοδα Οδηγών</button>
+
+    <!-- USER MANAGEMENT -->
+    <button onclick="loadAllUsers()">Διαχείριση Χρηστών</button>
+    <button onclick="loadPendingDriverRegistrations()">Εγκρίσεις Οδηγών</button>
+    <button onclick="loadPendingOperatorRegistrations()">Εγκρίσεις Λειτουργών</button>
+
+    <!-- DOCUMENTS -->
+    <button onclick="loadAllDriverDocuments()">Έγγραφα Οδηγών</button>
+
+    <!-- SERVICE TYPES -->
+    <button onclick="loadServiceTypes()">Τύποι Υπηρεσιών</button>
+
+    <!-- VEHICLE STANDARDS -->
+    <button onclick="loadVehicleStandards()">Προδιαγραφές Οχημάτων</button>
+
+    <!-- GDPR -->
+    <button onclick="loadGDPRRequests()">GDPR Αιτήματα Διαγραφής</button>
+
+    <!-- PAYMENTS -->
+    <button onclick="loadPayments()">Πληρωμές & Προμήθειες</button>
+
+    <!-- SYSTEM LOGS -->
+    <button onclick="loadSystemLogs()">Ιστορικό Ενεργειών</button>
+
+</div>
+
 
             <div id="operator-features" class="hidden">
                 <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>

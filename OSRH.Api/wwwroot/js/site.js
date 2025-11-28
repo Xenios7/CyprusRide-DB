@@ -442,3 +442,70 @@ async function fetchData(endpoint) {
         loading.classList.add('hidden');
     }
 }
+
+// --- ADMIN FEATURES ---
+function loadAllUsers() {
+    document.getElementById('table-title').innerText = "Όλοι οι Χρήστες";
+    resetView();
+    fetchData('/api/admin/users');
+}
+
+function loadPendingDriverRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Οδηγών";
+    resetView();
+    fetchData('/api/admin/pending-drivers');
+}
+
+function loadPendingOperatorRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Λειτουργών";
+    resetView();
+    fetchData('/api/admin/pending-operators');
+}
+
+function loadAllDriverDocuments() {
+    document.getElementById('table-title').innerText = "Έγγραφα Οδηγών";
+    resetView();
+    fetchData('/api/admin/driver-documents');
+}
+
+function loadServiceTypes() {
+    document.getElementById('table-title').innerText = "Τύποι Υπηρεσιών";
+    resetView();
+    fetchData('/api/admin/service-types');
+}
+
+function loadVehicleStandards() {
+    document.getElementById('table-title').innerText = "Προδιαγραφές Οχημάτων";
+    resetView();
+    fetchData('/api/admin/vehicle-standards');
+}
+
+function loadGDPRRequests() {
+    document.getElementById('table-title').innerText = "GDPR Αιτήματα Διαγραφής";
+    resetView();
+    fetchData('/api/admin/gdpr-requests');
+}
+
+function loadPayments() {
+    document.getElementById('table-title').innerText = "Πληρωμές & Προμήθειες";
+    resetView();
+    fetchData('/api/admin/payments');
+}
+
+function loadSystemLogs() {
+    document.getElementById('table-title').innerText = "Ιστορικό Ενεργειών";
+    resetView();
+    fetchData('/api/admin/logs');
+}
+
+function loadRouteStatistics() {
+    document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
+    resetView();
+    fetchData('/api/admin/reports/route-statistics');
+}
+
+function loadDriverIncome() {
+    document.getElementById('table-title').innerText = "Έσοδα Οδηγών";
+    resetView();
+    fetchData('/api/admin/reports/driver-income');
+}
