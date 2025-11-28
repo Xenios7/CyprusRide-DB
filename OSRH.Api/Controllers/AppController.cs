@@ -17,61 +17,48 @@ namespace OSRH.Api.Controllers
             _db = db;
         }
 
-        // 1. LOGIN (Απαίτηση: Οι χρήστες πρέπει να εισάγουν κωδικό)
-[HttpPost("login")]
-public async Task<IActionResult> Login([FromBody] JsonObject loginData)
-{
-    string username = loginData["username"]?.ToString() ?? "";
-    string password = loginData["password"]?.ToString() ?? "";
+        // ==========================================
+        // 1. AUTHENTICATION
+        // ==========================================
+        [HttpPost("login")]
+        public async Task<IActionResult> Login([FromBody] JsonObject loginData)
+        {
+            string username = loginData["username"]?.ToString() ?? "";
+            string password = loginData["password"]?.ToString() ?? "";
 
-    // Call the SP using LoadDataAsync
-    var dt = await _db.LoadDataAsync(
-        "dbo.sp_LoginUser", 
-        new[] { 
-            new SqlParameter("@Username", username),
-            new SqlParameter("@Password", password)
-        }, 
-        CommandType.StoredProcedure
-    );
+            var dt = await _db.LoadDataAsync("dbo.sp_LoginUser", 
+                new[] { new SqlParameter("@Username", username), new SqlParameter("@Password", password) }, 
+                CommandType.StoredProcedure);
 
-    // Check if SP returned anything
-    if (dt.Rows.Count == 0)
-    {
-        return StatusCode(500, new { message = "Server Error: No response from DB." });
-    }
+            if (dt.Rows.Count == 0) return StatusCode(500, new { message = "Server Error: No response." });
 
-    // Check the "Success" column from the SP
-    DataRow row = dt.Rows[0];
-    int success = Convert.ToInt32(row["Success"]);
-    string message = row["Message"].ToString();
+            DataRow row = dt.Rows[0];
+            int success = Convert.ToInt32(row["Success"]);
+            string message = row["Message"].ToString();
 
-    if (success == 0)
-    {
-        return Unauthorized(new { message = message });
-    }
+            if (success == 0) return Unauthorized(new { message = message });
 
-    // Login Valid - Return Data
-    string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"]?.ToString() ?? "" : "";
-    List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"]?.ToString() ?? "" : "";
+            List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
 
-    return Ok(new 
-    { 
-        username = row["Username"]?.ToString() ?? "", 
-        name = row["Name"]?.ToString() ?? "",   
-        roles = roleList
-    });
-}
+            return Ok(new 
+            { 
+                username = row["Username"]?.ToString() ?? "", 
+                name = row["Name"]?.ToString() ?? "",   
+                roles = roleList
+            });
+        }
 
-        // 2. REPORT: Cost Analysis (Admin)
+        // ==========================================
+        // 2. ADMIN / REPORTS
+        // ==========================================
         [HttpGet("reports/cost")]
         public async Task<IActionResult> GetCostReport()
         {
-            // Καλεί το Stored Procedure που φτιάξαμε
             var dt = await _db.LoadDataAsync("dbo.sp_GetCostAnalysisReport", null, CommandType.StoredProcedure);
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // 3. REPORT: Driver Performance (Admin)
         [HttpGet("reports/driver-performance")]
         public async Task<IActionResult> GetDriverPerformance()
         {
@@ -79,268 +66,207 @@ public async Task<IActionResult> Login([FromBody] JsonObject loginData)
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // 4. DRIVER: View Open Requests
-        // Χρησιμοποιεί το View 'v_OpenRequests' που φτιάξαμε
-        [HttpGet("driver/open-requests")]
-        public async Task<IActionResult> GetOpenRequests()
+        // ==========================================
+        // 3. PASSENGER FEATURES
+        // ==========================================
+        [HttpPost("passenger/request")]
+        public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
-            var dt = await _db.LoadDataAsync("SELECT * FROM dbo.v_OpenRequests");
+            // Hardcoded coords for demo
+            var parameters = new SqlParameter[] {
+                new SqlParameter("@Username", reqData["username"]!.ToString()),
+                new SqlParameter("@ServiceId", int.Parse(reqData["serviceId"]!.ToString())),
+                new SqlParameter("@EstimatedFare", 15.50m),
+                new SqlParameter("@PickupLat", 35.1700m),
+                new SqlParameter("@PickupLon", 33.3600m),
+                new SqlParameter("@DropoffLat", 34.9200m),
+                new SqlParameter("@DropoffLon", 33.6300m),
+                new SqlParameter("@Notes", reqData["notes"]?.ToString() ?? "")
+            };
+
+            DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
+            
+            if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
+            {
+                return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = Convert.ToInt32(dt.Rows[0]["RequestId"]) });
+            }
+            return BadRequest(new { message = "Failed to create request." });
+        }
+
+        [HttpGet("passenger/history/{username}")]
+        public async Task<IActionResult> GetPassengerHistory(string username)
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetPassengerHistory", new[] { new SqlParameter("@Username", username) }, CommandType.StoredProcedure);
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // Helper: Μετατροπή DataTable σε JSON List για το frontend
-// Helper Method (ΔΙΟΡΘΩΜΕΝΗ ΓΙΑ ΑΣΦΑΛΕΙΑ DATE/TIME)
-// Helper Method (ΔΙΟΡΘΩΜΕΝΗ)
+        [HttpGet("passenger/offers/{requestId}")]
+        public async Task<IActionResult> GetOffers(int requestId)
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetOffersForRequest", new[] { new SqlParameter("@RequestId", requestId) }, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("passenger/accept-offer")]
+        public async Task<IActionResult> AcceptOffer([FromBody] JsonObject data)
+        {
+            var parameters = new SqlParameter[] { 
+                new SqlParameter("@OfferId", int.Parse(data["offerId"]!.ToString())), 
+                new SqlParameter("@RequestId", int.Parse(data["requestId"]!.ToString())) 
+            };
+            await _db.ExecuteAsync("dbo.sp_AcceptOffer", parameters, CommandType.StoredProcedure);
+            return Ok(new { message = "Η διαδρομή ξεκίνησε! Καλό ταξίδι." });
+        }
+
+        // ==========================================
+        // 4. DRIVER FEATURES
+        // ==========================================
+        [HttpGet("driver/open-requests")]
+        public async Task<IActionResult> GetOpenRequests()
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetOpenRequests", null, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpGet("driver/availability/{username}")]
+        public async Task<IActionResult> GetDriverAvailability(string username)
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetDriverAvailability", new[] { new SqlParameter("@Username", username) }, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("driver/submit-offer")]
+        public async Task<IActionResult> SubmitOffer([FromBody] JsonObject offerData)
+        {
+            var parameters = new SqlParameter[] {
+                new SqlParameter("@RequestId", int.Parse(offerData["requestId"]!.ToString())),
+                new SqlParameter("@DriverId", int.Parse(offerData["driverId"]!.ToString())),
+                new SqlParameter("@VehicleId", int.Parse(offerData["vehicleId"]!.ToString())),
+                new SqlParameter("@EstimatedCost", decimal.Parse(offerData["estimatedCost"]!.ToString())),
+                new SqlParameter("@DistanceToPickup", (decimal)(1.0 + new Random().NextDouble() * 5.0))
+            };
+
+            var dt = await _db.LoadDataAsync("dbo.sp_SubmitOffer", parameters, CommandType.StoredProcedure);
+            if ((int)dt.Rows[0]["Success"] == 1) return Ok(new { message = dt.Rows[0]["Message"].ToString() });
+            return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
+        }
+
+        [HttpPost("driver/upload-document")]
+        public async Task<IActionResult> UploadDocument([FromBody] JsonObject docData)
+        {
+            try 
+            {
+                var parameters = new[] {
+                    new SqlParameter("@Username", docData["username"]?.ToString()),
+                    new SqlParameter("@DocType", docData["docType"]?.ToString()),
+                    new SqlParameter("@DocNumber", docData["docNumber"]?.ToString()),
+                    new SqlParameter("@FileUrl", docData["fileUrl"]?.ToString()),
+                    new SqlParameter("@IssueDate", DateTime.Parse(docData["issueDate"]?.ToString())),
+                    new SqlParameter("@ExpiryDate", DateTime.Parse(docData["expiryDate"]?.ToString()))
+                };
+
+                var dt = await _db.LoadDataAsync("dbo.sp_DriverUploadDocument", parameters, CommandType.StoredProcedure);
+                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) return Ok(new { message = "Το έγγραφο υποβλήθηκε επιτυχώς!" });
+                return BadRequest(new { message = "Σφάλμα: Ο οδηγός δεν βρέθηκε." });
+            }
+            catch (Exception ex) { return StatusCode(500, new { message = "Server Error: " + ex.Message }); }
+        }
+
+        // --- NEW DRIVER FEATURES (ADDED AND FIXED) ---
+
+        // 14. DRIVER: Add Availability (WRITE)
+        [HttpPost("driver/add-availability")]
+        public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
+        {
+            try
+            {
+                var parameters = new[] {
+                    new SqlParameter("@Username", data["username"]?.ToString()),
+                    new SqlParameter("@Weekday", int.Parse(data["weekday"]?.ToString() ?? "1")),
+                    new SqlParameter("@StartTime", TimeSpan.Parse(data["start"]?.ToString() ?? "09:00")),
+                    new SqlParameter("@EndTime", TimeSpan.Parse(data["end"]?.ToString() ?? "17:00")),
+                    new SqlParameter("@Notes", "Web App")
+                };
+                
+                // Using ExecuteAsync because we don't need a DataTable back, just success
+                // Note: The SP returns a SELECT, so LoadDataAsync is safer to consume the result message
+                var dt = await _db.LoadDataAsync("dbo.sp_AddDriverAvailability", parameters, CommandType.StoredProcedure);
+                
+                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) 
+                    return Ok(new { message = "Shift added!" });
+                
+                return BadRequest(new { message = "Error adding shift." });
+            }
+            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+        }
+
+        // 15. DRIVER: Get Active Trip
+        [HttpGet("driver/active-trip/{username}")]
+        public async Task<IActionResult> GetActiveTrip(string username)
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetDriverActiveTrip", 
+                new[] { new SqlParameter("@Username", username) }, 
+                CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // 16. DRIVER: Update Trip Status
+        [HttpPost("driver/update-trip")]
+        public async Task<IActionResult> UpdateTrip([FromBody] JsonObject data)
+        {
+            await _db.ExecuteAsync("dbo.sp_UpdateTripStatus", 
+                new[] { 
+                    new SqlParameter("@TripId", int.Parse(data["tripId"]?.ToString())), 
+                    new SqlParameter("@NewStatus", data["status"]?.ToString()) 
+                }, 
+                CommandType.StoredProcedure);
+            
+            return Ok(new { message = "Trip updated!" });
+        }
+
+        // ==========================================
+        // 5. OPERATOR FEATURES
+        // ==========================================
+        [HttpGet("operator/pending-documents")]
+        public async Task<IActionResult> GetPendingDocuments()
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetPendingDocuments", null, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("operator/verify-document")] 
+        public async Task<IActionResult> VerifyDocument([FromBody] JsonObject verifyData)
+        {
+            try
+            {
+                var parameters = new[] {
+                    new SqlParameter("@DocId", int.Parse(verifyData["docId"]?.ToString())),
+                    new SqlParameter("@Status", verifyData["status"]?.ToString())
+                };
+                await _db.ExecuteAsync("dbo.sp_VerifyDocument", parameters, CommandType.StoredProcedure);
+                return Ok(new { message = "Document status updated successfully." });
+            }
+            catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
+        }
+
+        // ==========================================
+        // HELPERS
+        // ==========================================
         private List<Dictionary<string, object?>> ConvertDataTableToDict(DataTable dt)
         {
             var columns = dt.Columns.Cast<DataColumn>();
             return dt.AsEnumerable().Select(dataRow => 
                 columns.ToDictionary(
                     column => column.ColumnName, 
-                    column => // <--- ΔΙΟΡΘΩΣΗ: Μετονομάστηκε από 'data' σε 'column'
+                    column => 
                     {
-                        var value = dataRow[column]; // Τώρα το 'column' αναγνωρίζεται σωστά
-                        
-                        // Ελέγχουμε για NULL
+                        var value = dataRow[column];
                         if (value is DBNull) return null;
-                        
-                        // ΕΛΕΓΧΟΣ DATE/TIME: Μετατρέπουμε σε string για να αποφύγουμε JSON errors
                         if (value is DateTime dtValue) return dtValue.ToString("yyyy-MM-dd HH:mm:ss"); 
-                        
-                        // Επιστροφή άλλων τύπων ως έχουν
                         return value;
                     }
                 )
             ).ToList();
-        }
-
-        // 10. DRIVER: Get Availability
-        [HttpGet("driver/availability/{username}")]
-        public async Task<IActionResult> GetDriverAvailability(string username)
-        {
-            // Βρίσκουμε το ID του οδηγού από το username και επιστρέφουμε τη διαθεσιμότητα
-            string sql = @"
-                SELECT DA.weekday, DA.start_time, DA.end_time, DA.status, DA.notes
-                FROM dbo.DRIVER_AVAILABILITY DA
-                JOIN dbo.DRIVER D ON DA.driver_id = D.driver_id
-                JOIN dbo.[USER] U ON D.user_id = U.user_id
-                WHERE U.username = @u
-                ORDER BY DA.weekday";
-
-            var dt = await _db.LoadDataAsync(sql, new[] { new SqlParameter("@u", username) });
-            return Ok(ConvertDataTableToDict(dt));
-        }
-
-        // 11. ADMIN: Get Pending Documents (Using existing View)
-        // [Authorize(Roles = "Operator")] 
-        [HttpGet("operator/pending-documents")]
-        public async Task<IActionResult> GetPendingDocuments()
-        {
-            var dt = await _db.LoadDataAsync("SELECT * FROM dbo.v_PendingDocuments");
-            return Ok(ConvertDataTableToDict(dt));
-        }
-        // 5. PASSENGER: Create New Request
- // 5. PASSENGER: Create New Request (Διορθωμένη για να επιστρέφει το ID)
-// 5. PASSENGER: Create New Request (ΔΙΟΡΘΩΜΕΝΗ ΜΕΘΟΔΟΣ ΓΙΑ ΝΑ ΕΠΙΣΤΡΕΦΕΙ ΤΟ ID)
-        [HttpPost("passenger/request")]
-        public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
-        {
-            // Ανάκτηση παραμέτρων (username, serviceId, notes, κτλ.)
-            string username = reqData["username"]!.ToString();
-            int serviceId = int.Parse(reqData["serviceId"]!.ToString());
-            string notes = reqData["notes"]?.ToString() ?? "";
-
-            // --- Στοιχεία Διαδρομής (Hardcoded για demo) ---
-            decimal pickupLat = 35.1700m;
-            decimal pickupLon = 33.3600m;
-            decimal dropoffLat = 34.9200m;
-            decimal dropoffLon = 33.6300m;
-            decimal estimatedFare = 15.50m; // Simplified estimation
-
-            // 1. Βρες το User ID
-            var userDt = await _db.LoadDataAsync("SELECT user_id FROM dbo.[USER] WHERE username = @u", 
-                new[] { new SqlParameter("@u", username) });
-            
-            if (userDt.Rows.Count == 0) return NotFound(new { message = "User not found." });
-            int userId = (int)userDt.Rows[0]["user_id"];
-
-            // 2. SQL: INSERT & SELECT SCOPE_IDENTITY()
-            string sql = @"
-                INSERT INTO dbo.TRANSPORT_REQUEST 
-                (user_id, service_id, request_time, status, estimated_fare, pickup_latitude, pickup_longitude, dropoff_latitude, dropoff_longitude, notes)
-                VALUES (@uid, @sid, GETDATE(), 'Open', @fare, @plat, @plon, @dlat, @dlon, @notes);
-                
-                SELECT SCOPE_IDENTITY() AS RequestId;"; // <-- Επιστρέφει το ID
-            
-            // 3. Παράμετροι (χρειάζονται όλα τα στοιχεία)
-            var parameters = new SqlParameter[] {
-                new SqlParameter("@uid", userId),
-                new SqlParameter("@sid", serviceId),
-                new SqlParameter("@fare", estimatedFare),
-                new SqlParameter("@plat", pickupLat),
-                new SqlParameter("@plon", pickupLon),
-                new SqlParameter("@dlat", dropoffLat),
-                new SqlParameter("@dlon", dropoffLon),
-                new SqlParameter("@notes", notes)
-            };
-
-            // 4. ΕΚΤΕΛΕΣΗ: Χρησιμοποιούμε LoadDataAsync και παίρνουμε τον DataTable
-            DataTable dt = await _db.LoadDataAsync(sql, parameters);
-            
-            // 5. Ανάκτηση του νέου ID και μετατροπή σε INT
-            // Το SCOPE_IDENTITY() επιστρέφεται ως decimal, πρέπει να το κάνουμε cast
-            decimal newRequestIdDecimal = (decimal)dt.Rows[0]["RequestId"];
-            int newRequestId = (int)newRequestIdDecimal;
-
-            // 6. Επιστροφή επιτυχίας και του ID (για χρήση στο Frontend)
-            return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
-        }
-
-        // 6. PASSENGER: View My History
-        [HttpGet("passenger/history/{username}")]
-        public async Task<IActionResult> GetPassengerHistory(string username)
-        {
-            string sql = @"
-                SELECT * FROM dbo.v_TripHistory 
-                WHERE PassengerUsername = @u 
-                ORDER BY request_time DESC";
-            
-            var dt = await _db.LoadDataAsync(sql, new[] { new SqlParameter("@u", username) });
-            return Ok(ConvertDataTableToDict(dt));
-        }
-
-        // 7. PASSENGER: Get Offers for a specific Request
-        [HttpGet("passenger/offers/{requestId}")]
-        public async Task<IActionResult> GetOffers(int requestId)
-        {
-            var dt = await _db.LoadDataAsync(
-                "dbo.sp_GetOffersForRequest", 
-                new[] { new SqlParameter("@RequestId", requestId) }, 
-                CommandType.StoredProcedure
-            );
-            return Ok(ConvertDataTableToDict(dt));
-        }
-
-        // 8. PASSENGER: Accept an Offer
-        [HttpPost("passenger/accept-offer")]
-        public async Task<IActionResult> AcceptOffer([FromBody] JsonObject data)
-        {
-            int offerId = int.Parse(data["offerId"]!.ToString());
-            int requestId = int.Parse(data["requestId"]!.ToString());
-
-            var parameters = new SqlParameter[] {
-                new SqlParameter("@OfferId", offerId),
-                new SqlParameter("@RequestId", requestId)
-            };
-
-            await _db.ExecuteAsync(
-                "dbo.sp_AcceptOffer", 
-                parameters, 
-                CommandType.StoredProcedure
-            );
-
-            return Ok(new { message = "Η διαδρομή ξεκίνησε! Καλό ταξίδι." });
-        }
-
-        // 9. DRIVER: Submit Offer for a Request
-        // (Χρειάζεται να βρεθεί το driverId του συνδεδεμένου χρήστη)
-        [HttpPost("driver/submit-offer")]
-        public async Task<IActionResult> SubmitOffer([FromBody] JsonObject offerData)
-        {
-            // Ανάκτηση των απαραίτητων παραμέτρων από το frontend (Driver ID και Offer Details)
-            int requestId = int.Parse(offerData["requestId"]!.ToString());
-            int driverId = int.Parse(offerData["driverId"]!.ToString()); // Driver ID του συνδεδεμένου χρήστη
-            int vehicleId = int.Parse(offerData["vehicleId"]!.ToString());
-            decimal estimatedCost = decimal.Parse(offerData["estimatedCost"]!.ToString());
-            
-            // Τυχαία απόσταση για το demo
-            decimal distanceToPickup = (decimal) (1.0 + new Random().NextDouble() * 5.0); 
-
-            var parameters = new SqlParameter[] {
-                new SqlParameter("@RequestId", requestId),
-                new SqlParameter("@DriverId", driverId),
-                new SqlParameter("@VehicleId", vehicleId),
-                new SqlParameter("@EstimatedCost", estimatedCost),
-                new SqlParameter("@DistanceToPickup", distanceToPickup)
-            };
-
-            // Εκτέλεση του SP και λήψη του αποτελέσματος (Success/Message)
-            var dt = await _db.LoadDataAsync(
-                "dbo.sp_SubmitOffer", 
-                parameters, 
-                CommandType.StoredProcedure
-            );
-
-            // Ελέγχουμε την απάντηση του SQL Server
-            if ((int)dt.Rows[0]["Success"] == 1)
-            {
-                return Ok(new { message = dt.Rows[0]["Message"].ToString() });
-            }
-            return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
-        }
-
-        // 12. DRIVER: Upload Document
-        [HttpPost("driver/upload-document")]
-        public async Task<IActionResult> UploadDocument([FromBody] JsonObject docData)
-        {
-            try 
-            {
-                // 1. Extract Data from JSON
-                string username = docData["username"]?.ToString() ?? "";
-                string docType = docData["docType"]?.ToString() ?? "";
-                string docNumber = docData["docNumber"]?.ToString() ?? "";
-                string fileUrl = docData["fileUrl"]?.ToString() ?? "";
-                string issueDateStr = docData["issueDate"]?.ToString() ?? "";
-                string expiryDateStr = docData["expiryDate"]?.ToString() ?? "";
-
-                // 2. SQL to Find Driver ID & Insert Document
-                // We use a subquery to get the driver_id directly from the username
-                string sql = @"
-                    DECLARE @DriverID INT;
-                    
-                    SELECT @DriverID = d.driver_id 
-                    FROM dbo.DRIVER d
-                    JOIN dbo.[USER] u ON d.user_id = u.user_id
-                    WHERE u.username = @Username;
-
-                    IF @DriverID IS NOT NULL
-                    BEGIN
-                        INSERT INTO dbo.DRIVER_DOCUMENT 
-                        (driver_id, document_type, document_number, file_url, issue_date, expiry_date, verification_status)
-                        VALUES 
-                        (@DriverID, @DocType, @DocNumber, @FileUrl, @IssueDate, @ExpiryDate, 'Pending');
-                        
-                        SELECT 1 AS Success, 'Document uploaded successfully' AS Message;
-                    END
-                    ELSE
-                    BEGIN
-                        SELECT 0 AS Success, 'Driver not found' AS Message;
-                    END";
-
-                // 3. Prepare Parameters
-                var parameters = new[] {
-                    new SqlParameter("@Username", username),
-                    new SqlParameter("@DocType", docType),
-                    new SqlParameter("@DocNumber", docNumber),
-                    new SqlParameter("@FileUrl", fileUrl),
-                    new SqlParameter("@IssueDate", DateTime.Parse(issueDateStr)),
-                    new SqlParameter("@ExpiryDate", DateTime.Parse(expiryDateStr))
-                };
-
-                // 4. Execute
-                var dt = await _db.LoadDataAsync(sql, parameters);
-                
-                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1)
-                {
-                    return Ok(new { message = "Το έγγραφο υποβλήθηκε επιτυχώς!" });
-                }
-                
-                return BadRequest(new { message = "Σφάλμα: Ο οδηγός δεν βρέθηκε." });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = "Server Error: " + ex.Message });
-            }
         }
     }
 }

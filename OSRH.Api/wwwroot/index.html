@@ -89,10 +89,89 @@
         </div>
         
         <div id="driver-features" class="hidden">
-            <button onclick="loadOpenRequests()">Ανοιχτά Αιτήματα (Οδηγός)</button>
-            <button onclick="loadAvailability()" style="background-color: #17a2b8;">Η Διαθεσιμότητά μου</button>
-            <button onclick="showUploadForm()" style="background-color: #28a745;">Υποβολή Εγγράφου</button>
+            <div class="button-container" style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+                <button onclick="loadOpenRequests()" class="btn-primary">Διαθέσιμα Αιτήματα</button>
+                <button onclick="loadAvailability()" class="btn-secondary">Η Διαθεσιμότητά μου</button>
+                <button onclick="showUploadForm()" class="btn-warning">Υποβολή Εγγράφου</button>
+                
+                <button onclick="showAddShiftForm()" class="btn-info" style="background-color: #17a2b8; color: white;">➕ Προσθήκη Βάρδιας</button>
+                <button onclick="showActiveTripScreen()" class="btn-success" style="background-color: #28a745; color: white;">🚗 Τρέχουσα Διαδρομή</button>
+            </div>
         </div>
+
+<div id="add-shift-form" class="hidden form-container">
+    <div class="card" style="max-width: 400px; margin: 0 auto;">
+        <h3 style="margin-top:0;">Προσθήκη Νέας Βάρδιας</h3>
+        
+        <div class="form-group">
+            <label>Ημέρα:</label>
+            <select id="shift-day" class="form-control">
+                <option value="1">Δευτέρα</option>
+                <option value="2">Τρίτη</option>
+                <option value="3">Τετάρτη</option>
+                <option value="4">Πέμπτη</option>
+                <option value="5">Παρασκευή</option>
+                <option value="6">Σάββατο</option>
+                <option value="7">Κυριακή</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label>Ώρα Έναρξης:</label>
+            <input type="time" id="shift-start" value="09:00" class="form-control">
+        </div>
+
+        <div class="form-group">
+            <label>Ώρα Λήξης:</label>
+            <input type="time" id="shift-end" value="17:00" class="form-control">
+        </div>
+
+        <div style="margin-top: 15px; display: flex; gap: 10px;">
+            <button onclick="submitShift()" class="btn-primary" style="flex:1;">Αποθήκευση</button>
+            <button onclick="loadAvailability()" class="btn-secondary" style="flex:1;">Ακύρωση</button>
+        </div>
+    </div>
+</div>
+
+<!-- <div id="active-trip-screen" class="hidden form-container">
+    <div class="card" style="max-width: 500px; margin: 0 auto; text-align:center;">
+        <h3 style="margin-top:0;">Διαχείριση Διαδρομής</h3>
+        
+        <div id="active-trip-content" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+            Scanning for active trips...
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="btn-start-trip" class="btn-success hidden" style="padding: 10px 20px;">🚀 Εκκίνηση</button>
+            <button id="btn-end-trip" class="btn-danger hidden" style="padding: 10px 20px;">🏁 Ολοκλήρωση</button>
+            <button onclick="resetView()" class="btn-secondary">Κλείσιμο</button>
+        </div>
+    </div>
+</div> -->
+
+        <div class="card">
+    <h3>Προσθήκη Βάρδιας</h3>
+    <div class="form-group">
+        <label>Ημέρα (1=Δευ, 7=Κυρ):</label>
+        <input type="number" id="avail-day" min="1" max="7" value="1">
+    </div>
+    <div class="form-group">
+        <label>Ώρα Έναρξης:</label>
+        <input type="time" id="avail-start" value="09:00">
+    </div>
+    <div class="form-group">
+        <label>Ώρα Λήξης:</label>
+        <input type="time" id="avail-end" value="17:00">
+    </div>
+    <button onclick="addDriverAvailability()" class="btn-primary">Προσθήκη</button>
+</div>
+
+<div class="card" id="active-trip-card" class="hidden">
+    <h3>Τρέχουσα Διαδρομή</h3>
+    <div id="active-trip-info">Scanning...</div>
+    <button id="btn-start-trip" class="btn-primary hidden">Εκκίνηση Διαδρομής</button>
+    <button id="btn-end-trip" class="btn-danger hidden">Ολοκλήρωση Διαδρομής</button>
+</div>
 
         <div id="passenger-features" class="hidden">
             <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
@@ -119,6 +198,17 @@
         <input type="text" id="request-notes" placeholder="π.χ. Περιμένω στη γωνία">
         <button onclick="submitRequest()" style="margin-top: 10px;">Αποστολή Αιτήματος</button>
     </div>
+
+    <div id="driver-features" class="hidden">
+    <div class="button-container">
+        <button onclick="loadOpenRequests()" class="btn-primary">Διαθέσιμα Αιτήματα</button>
+        <button onclick="loadAvailability()" class="btn-secondary">Η Διαθεσιμότητά μου</button>
+        <button onclick="showUploadForm()" class="btn-warning">Υποβολή Εγγράφου</button>
+        
+        <button onclick="showAddShiftForm()" class="btn-info">Προσθήκη Βάρδιας</button>
+        <button onclick="showActiveTripScreen()" class="btn-success">Τρέχουσα Διαδρομή</button>
+    </div>
+</div>
 
     <div id="document-form" class="hidden" style="margin-top: 20px; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background: #fdfdfd;">
         <h3>Υποβολή Νέου Εγγράφου</h3>
@@ -160,6 +250,36 @@
             <button onclick="document.getElementById('request-form').classList.add('hidden')" style="background-color: #6c757d;">Ακύρωση</button>
         </div>
 
+        <div id="add-shift-form" class="hidden form-container">
+    <div class="card">
+        <h3>Προσθήκη Νέας Βάρδιας</h3>
+        <div class="form-group">
+            <label>Ημέρα (1=Δευτέρα ... 7=Κυριακή):</label>
+            <input type="number" id="shift-day" min="1" max="7" value="1" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Ώρα Έναρξης:</label>
+            <input type="time" id="shift-start" value="09:00" class="form-control">
+        </div>
+        <div class="form-group">
+            <label>Ώρα Λήξης:</label>
+            <input type="time" id="shift-end" value="17:00" class="form-control">
+        </div>
+        <button onclick="submitShift()" class="btn-primary" style="margin-top:10px;">Αποθήκευση</button>
+        <button onclick="resetView()" class="btn-secondary" style="margin-top:10px;">Ακύρωση</button>
+    </div>
+</div>
+
+<!-- <div id="active-trip-screen" class="hidden form-container">
+    <div class="card" style="text-align:center;">
+        <div id="active-trip-content">
+            Scanning for active trips...
+        </div>
+        <br>
+        <button id="btn-start-trip" class="btn-success hidden" style="width:100%; padding:15px; font-size:1.2em;">🚀 Εκκίνηση Διαδρομής</button>
+        <button id="btn-end-trip" class="btn-danger hidden" style="width:100%; padding:15px; font-size:1.2em;">🏁 Ολοκλήρωση Διαδρομής</button>
+    </div>
+</div> -->
         <div id="offers-section" class="hidden" style="margin-top: 20px;">
             <h3>Διαθέσιμες Επιλογές & Χάρτης Διαδρομής</h3>
 
@@ -186,3 +306,19 @@
 <script src="js/site.js"></script>
 </body>
 </html>
+
+<div id="active-trip-screen" class="hidden form-container" style="display:none;">
+        <div class="card" style="max-width: 500px; margin: 0 auto; text-align:center;">
+        <h3 style="margin-top:0;">Διαχείριση Διαδρομής</h3>
+        
+        <div id="active-trip-content" style="padding: 20px; background: #f8f9fa; border-radius: 8px; margin-bottom: 20px;">
+            Scanning for active trips...
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button id="btn-start-trip" class="btn-success hidden" style="padding: 10px 20px;">🚀 Εκκίνηση</button>
+            <button id="btn-end-trip" class="btn-danger hidden" style="padding: 10px 20px;">🏁 Ολοκλήρωση</button>
+            <button onclick="resetView()" class="btn-secondary">Κλείσιμο</button>
+        </div>
+    </div>
+</div>
