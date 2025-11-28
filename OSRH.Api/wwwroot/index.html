@@ -91,17 +91,54 @@
         <!-- PASSENGER REQUEST FORM -->
         <div id="request-form" class="hidden card">
             <h3>Αίτημα Διαδρομής</h3>
-            <label>Υπηρεσία:</label>
-            <select id="service-select">
-                <option value="1">Standard</option>
-                <option value="2">Premium</option>
-                <option value="3">Delivery</option>
-                <option value="4">XL</option>
-            </select>
-            <label>Σημειώσεις:</label>
-            <input type="text" id="request-notes" placeholder="π.χ. Περιμένω στη γωνία">
-            <button onclick="submitRequest()" style="margin-top: 10px;">Αποστολή Αιτήματος</button>
-            <button onclick="document.getElementById('request-form').classList.add('hidden')" style="background-color: #6c757d; margin-top: 10px;">Ακύρωση</button>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Υπηρεσία:</label>
+                <select id="service-select" style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                    <option value="1">Standard - Regular ride (€5+ base)</option>
+                    <option value="2">Premium - Luxury vehicle (€10+ base)</option>
+                    <option value="3">Delivery - Package delivery (€6+ base)</option>
+                    <option value="4">XL - Large vehicle (€8+ base)</option>
+                </select>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">📍 Τοποθεσία Παραλαβής:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="pickup-lat" placeholder="Latitude" value="35.1700" 
+                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" step="0.0001">
+                    <input type="number" id="pickup-lon" placeholder="Longitude" value="33.3600" 
+                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" step="0.0001">
+                </div>
+                <small style="color: #666;">Nicosia City Center (default)</small>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">🎯 Τοποθεσία Προορισμού:</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" id="dropoff-lat" placeholder="Latitude" value="34.9200" 
+                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" step="0.0001">
+                    <input type="number" id="dropoff-lon" placeholder="Longitude" value="33.6300" 
+                        style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;" step="0.0001">
+                </div>
+                <small style="color: #666;">Limassol City Center (default)</small>
+            </div>
+            
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">📝 Σημειώσεις (προαιρετικά):</label>
+                <textarea id="request-notes" placeholder="π.χ. Περιμένω στη γωνία, έχω βαλίτσες..."
+                    style="width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;" rows="3"></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px;">
+                <button onclick="submitRequest()" style="flex: 1; padding: 12px; background-color: #28a745; color: white; font-size: 16px; border: none; border-radius: 4px; cursor: pointer;">
+                    📤 Αποστολή Αιτήματος
+                </button>
+                <button onclick="document.getElementById('request-form').classList.add('hidden')" 
+                    style="flex: 0.3; padding: 12px; background-color: #6c757d; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Ακύρωση
+                </button>
+            </div>
         </div>
 
         <!-- DRIVER: ADD SHIFT FORM -->

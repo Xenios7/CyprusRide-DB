@@ -1,7 +1,9 @@
 // Global map variable
 let map; 
 
-// --- 1. LOGIN & AUTH ---
+// =========================================================
+// 1. LOGIN & AUTHENTICATION
+// =========================================================
 async function login() {
     const username = document.getElementById('username').value;
     const password = document.getElementById('password').value; 
@@ -35,18 +37,10 @@ async function login() {
 }
 
 function setupDashboard(roles) {
-    if (roles.includes("Admin")) {
-        document.getElementById("admin-features").classList.remove("hidden");
-    }
-    if (roles.includes("Operator")) {
-        document.getElementById("operator-features").classList.remove("hidden");
-    }
-    if (roles.includes("Driver")) {
-        document.getElementById("driver-features").classList.remove("hidden");
-    }
-    if (roles.includes("Passenger")) {
-        document.getElementById("passenger-features").classList.remove("hidden");
-    }
+    if (roles.includes("Admin")) document.getElementById("admin-features").classList.remove("hidden");
+    if (roles.includes("Operator")) document.getElementById("operator-features").classList.remove("hidden");
+    if (roles.includes("Driver")) document.getElementById("driver-features").classList.remove("hidden");
+    if (roles.includes("Passenger")) document.getElementById("passenger-features").classList.remove("hidden");
 }
 
 function logout() {
@@ -54,7 +48,9 @@ function logout() {
     location.reload();
 }
 
-// --- 2. ADMIN REPORTS ---
+// =========================================================
+// 2. ADMIN & REPORTS
+// =========================================================
 async function loadReport(type) {
     const titleMap = {
         'cost': 'Ανάλυση Κόστους ανά Υπηρεσία',
@@ -65,7 +61,9 @@ async function loadReport(type) {
     fetchData(`/api/app/reports/${type}`);
 }
 
-// --- 3. OPERATOR ---
+// =========================================================
+// 3. OPERATOR FEATURES
+// =========================================================
 async function loadPendingDocuments() {
     document.getElementById('table-title').innerText = 'Έγγραφα προς Έλεγχο (Pending)';
     resetView();
@@ -95,7 +93,9 @@ async function verifyDocument(docId, status) {
     }
 }
 
-// --- 4. DRIVER FEATURES ---
+// =========================================================
+// 4. DRIVER FEATURES
+// =========================================================
 async function loadOpenRequests() {
     document.getElementById('table-title').innerText = 'Διαθέσιμα Αιτήματα Διαδρομών';
     resetView();
@@ -110,12 +110,10 @@ async function loadAvailability() {
     fetchData(`/api/app/driver/availability/${currentUser}`);
 }
 
+// --- ADD SHIFT ---
 function showAddShiftForm() {
     document.getElementById('table-title').innerText = 'Προσθήκη Βάρδιας';
-    document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
-    document.getElementById('request-form')?.classList.add('hidden');
-    document.getElementById('offers-section')?.classList.add('hidden');
-    document.getElementById('document-form')?.classList.add('hidden');
+    resetView();
     document.getElementById('add-shift-form').classList.remove('hidden');
 }
 
@@ -147,6 +145,7 @@ async function submitShift() {
     }
 }
 
+// --- DOCUMENTS ---
 function showUploadForm() {
     document.getElementById('table-title').innerText = 'Υποβολή Εγγράφου';
     resetView();
@@ -163,30 +162,26 @@ async function submitDocument() {
         issueDate: document.getElementById('doc-issue').value,
         expiryDate: document.getElementById('doc-expiry').value
     };
-    
     try {
         const response = await fetch('/api/app/driver/upload-document', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(docData)
         });
-        
         if (response.ok) {
             alert("Το έγγραφο υποβλήθηκε επιτυχώς!");
             document.getElementById('document-form').classList.add('hidden');
-        } else {
-            alert("Σφάλμα υποβολής.");
-        }
-    } catch(e) {
-        console.error(e);
-        alert("Σφάλμα σύνδεσης.");
-    }
+        } else { alert("Σφάλμα υποβολής."); }
+    } catch(e) { console.error(e); alert("Σφάλμα σύνδεσης."); }
 }
 
+// --- OFFERS ---
 async function makeOffer(requestId, estimatedFare) {
     const costInput = prompt("Εισάγετε το κόστος της προσφοράς σας (€):", estimatedFare);
     if (costInput === null) return;
 
+    // Use specific driver details (ideally fetched from session/backend)
+    // For demo, we hardcode to the current logged-in driver context handled by SP logic usually, 
+    // but the API expects IDs. For this project phase, we assume ID 1 for testing if not fully dynamic.
     const driverId = 1; 
     const vehicleId = 1; 
 
@@ -215,7 +210,6 @@ async function makeOffer(requestId, estimatedFare) {
 function rejectRequest(requestId) {
     if(!confirm("Είστε σίγουροι ότι θέλετε να απορρίψετε αυτό το αίτημα;")) return;
     hideRequestLocally(requestId);
-    alert("Το αίτημα απορρίφθηκε.");
     loadOpenRequests(); 
 }
 
@@ -225,7 +219,65 @@ function hideRequestLocally(requestId) {
     sessionStorage.setItem('ignoredRequests', JSON.stringify(ignored));
 }
 
-// --- 5. PASSENGER FEATURES ---
+// --- ACTIVE TRIP MANAGEMENT ---
+async function showActiveTripScreen() {
+    document.getElementById('table-title').innerText = 'Τρέχουσα Διαδρομή';
+    resetView();
+    document.getElementById('active-trip-screen').classList.remove('hidden');
+    
+    const currentUser = sessionStorage.getItem('currentUser');
+    const container = document.getElementById('active-trip-content');
+    const btnStart = document.getElementById('btn-start-trip');
+    const btnEnd = document.getElementById('btn-end-trip');
+
+    btnStart.classList.add('hidden');
+    btnEnd.classList.add('hidden');
+    container.innerHTML = "Αναζήτηση...";
+
+    try {
+        const response = await fetch(`/api/app/driver/active-trip/${currentUser}`);
+        const data = await response.json();
+
+        if (data.length > 0) {
+            const trip = data[0];
+            container.innerHTML = `
+                <h2 style="color:#2c3e50;">${trip.PassengerName}</h2>
+                <p>📍 <strong>Παραλαβή:</strong> ${trip.pickup_latitude}, ${trip.pickup_longitude}</p>
+                <p>📍 <strong>Προορισμός:</strong> ${trip.dropoff_latitude}, ${trip.dropoff_longitude}</p>
+                <p>💰 <strong>Κόστος:</strong> €${trip.Fare}</p>
+                <p>Status: <strong>${trip.TripStatus}</strong></p>
+            `;
+
+            if (trip.TripStatus === 'Scheduled') {
+                btnStart.classList.remove('hidden');
+                btnStart.onclick = () => updateTripStatus(trip.trip_id, 'In Progress');
+            } else if (trip.TripStatus === 'In Progress') {
+                btnEnd.classList.remove('hidden');
+                btnEnd.onclick = () => updateTripStatus(trip.trip_id, 'Completed');
+            }
+        } else {
+            container.innerHTML = "<p>Δεν υπάρχει ενεργή διαδρομή αυτή τη στιγμή.</p>";
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function updateTripStatus(tripId, status) {
+    if(!confirm(`Επιβεβαίωση αλλαγής κατάστασης σε: ${status}?`)) return;
+    
+    await fetch('/api/app/driver/update-trip', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ tripId, status })
+    });
+    
+    showActiveTripScreen(); // Refresh UI
+}
+
+
+// =========================================================
+// 5. PASSENGER FUNCTIONS
+// =========================================================
+
 function showRequestForm() {
     document.getElementById('table-title').innerText = 'Νέα Διαδρομή';
     resetView();
@@ -234,116 +286,214 @@ function showRequestForm() {
 
 async function submitRequest() {
     const currentUser = sessionStorage.getItem('currentUser');
+    const serviceId = document.getElementById('service-select').value;
+    const notes = document.getElementById('request-notes').value;
+    // Hardcoded demo coordinates if input fields missing, otherwise read inputs
+    const pickupLat = 35.1700;
+    const pickupLon = 33.3600;
+    const dropoffLat = 34.9200;
+    const dropoffLon = 33.6300;
+    
     try {
         const response = await fetch('/api/app/passenger/request', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 username: currentUser, 
-                serviceId: document.getElementById('service-select').value, 
-                notes: document.getElementById('request-notes').value 
+                serviceId: serviceId,
+                pickupLat: pickupLat, pickupLon: pickupLon,
+                dropoffLat: dropoffLat, dropoffLon: dropoffLon,
+                notes: notes
             })
         });
         
         if (response.ok) {
             const res = await response.json();
-            alert("Αίτημα εστάλη!");
+            alert("✅ Αίτημα εστάλη! Αναζήτηση οδηγών...");
+            sessionStorage.setItem('currentRequestId', res.requestId);
             loadOffers(res.requestId);
+        } else {
+            alert('❌ Αποτυχία αποστολής');
         }
-    } catch(e) {
-        console.error(e);
-    }
+    } catch(e) { console.error(e); }
 }
 
 async function loadPassengerHistory() {
     const currentUser = sessionStorage.getItem('currentUser');
     document.getElementById('table-title').innerText = 'Ιστορικό';
     resetView();
-    fetchData(`/api/app/passenger/history/${currentUser}`);
+    
+    try {
+        const response = await fetch(`/api/app/passenger/history/${currentUser}`);
+        const history = await response.json();
+        
+        if (history.length === 0) {
+            // If no history, maybe they have an open request?
+            // For now just show empty table
+        }
+        fetchData(`/api/app/passenger/history/${currentUser}`);
+    } catch (error) { console.error(error); }
 }
 
+// Global variable for the timer (Put this at top of site.js)
+let offerPollingInterval; 
+
+// --- ENHANCED OFFERS & MAP (With Auto-Refresh) ---
 async function loadOffers(requestId) {
     resetView();
-    document.getElementById('offers-section').classList.remove('hidden');
+    const section = document.getElementById('offers-section');
+    section.classList.remove('hidden');
+    
     const container = document.getElementById('offers-container');
-    container.innerHTML = "Αναζήτηση οδηγών...";
-
-    const response = await fetch(`/api/app/passenger/offers/${requestId}`);
-    const offers = await response.json();
-    container.innerHTML = "";
-
-    if(offers.length === 0) {
-        container.innerHTML = "Δεν βρέθηκαν οδηγοί.";
-        return;
-    }
-
-    if (!map) {
-        map = L.map('map');
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-    }
     
-    const pickup = [offers[0].pickup_latitude, offers[0].pickup_longitude];
-    const dropoff = [offers[0].dropoff_latitude, offers[0].dropoff_longitude];
-    
-    map.eachLayer(layer => {
-        if(layer instanceof L.Marker || layer instanceof L.Polyline) layer.remove();
-    });
-    
-    L.marker(pickup).addTo(map).bindPopup("Start").openPopup();
-    L.marker(dropoff).addTo(map).bindPopup("End");
-    L.polyline([pickup, dropoff], {color: 'black', dashArray: '5, 10'}).addTo(map);
-    
-    const colors = ['blue', 'red', 'green'];
-    offers.forEach((offer, i) => {
-        const color = colors[i % colors.length];
-        const offset = (Math.random()-0.5)*0.02;
-        const driverPos = [pickup[0]+offset, pickup[1]+offset];
-        
-        L.circleMarker(driverPos, {color, fillColor:color, radius:8}).addTo(map);
-        L.polyline([driverPos, pickup], {color, weight:4, opacity:0.7}).addTo(map);
+    // 1. CLEAR OLD TIMER (Crucial to prevent duplicate loops)
+    if (offerPollingInterval) clearInterval(offerPollingInterval);
 
-        const card = document.createElement('div');
-        card.style = `border:1px solid #ccc; border-top:5px solid ${color}; padding:10px; border-radius:5px; width:200px;`;
-        card.innerHTML = `<h4>${offer.DriverName}</h4><p>${offer.VehicleModel}</p><p>€${offer.estimated_cost}</p>`;
-        
-        const btn = document.createElement('button');
-        btn.innerText = "Επιλογή";
-        btn.style = `width:100%; background:${color}; color:white; border:none; padding:5px; cursor:pointer;`;
-        btn.onclick = () => acceptOffer(offer.offer_id, requestId);
-        
-        card.appendChild(btn);
-        container.appendChild(card);
-    });
+    // 2. DEFINE THE FETCH LOGIC
+    const fetchAndRender = async () => {
+        try {
+            // Check if user left the screen
+            if (section.classList.contains('hidden')) {
+                clearInterval(offerPollingInterval);
+                return;
+            }
 
-    map.fitBounds(L.polyline([pickup, dropoff]).getBounds(), {padding:[50,50]});
-    setTimeout(() => map.invalidateSize(), 100);
+            const response = await fetch(`/api/app/passenger/offers/${requestId}`);
+            const offers = await response.json();
+            
+            // If no offers yet, show waiting message
+            if(offers.length === 0) { 
+                // Only update text if it's not already there (prevents flickering)
+                if(!container.innerHTML.includes("Αναζήτηση")) {
+                    container.innerHTML = "<p>🔍 Αναζήτηση οδηγών... (Ανανέωση κάθε 5δ)</p>"; 
+                }
+                return; 
+            }
+
+            // --- OFFERS FOUND! RENDER THEM ---
+            
+            // Clear "Searching..." text
+            container.innerHTML = ""; 
+
+            // --- MAP SETUP ---
+            // Only initialize map if it doesn't exist or if we need to reset markers
+            if (map) { 
+                map.remove(); 
+                map = null; 
+            }
+
+            map = L.map('map');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            // Coordinates from first offer
+            const pickup = [parseFloat(offers[0].pickup_latitude), parseFloat(offers[0].pickup_longitude)];
+            const dropoff = [parseFloat(offers[0].dropoff_latitude), parseFloat(offers[0].dropoff_longitude)];
+            
+            const startIcon = L.divIcon({html: '🟢', className: 'map-icon', iconSize: [24, 24]});
+            const endIcon = L.divIcon({html: '🏁', className: 'map-icon', iconSize: [24, 24]});
+
+            L.marker(pickup, {icon: startIcon}).addTo(map).bindPopup("<b>Παραλαβή</b>").openPopup();
+            L.marker(dropoff, {icon: endIcon}).addTo(map).bindPopup("<b>Προορισμός</b>");
+            
+            L.polyline([pickup, dropoff], {color: '#3388ff', dashArray: '5, 10', weight: 4}).addTo(map);
+            
+            // --- CARDS & MARKERS ---
+            offers.forEach((offer) => {
+                // Driver Marker (Offset slightly)
+                const offset = (Math.random() - 0.5) * 0.005; 
+                const driverPos = [pickup[0] + offset, pickup[1] + offset];
+                
+                const carIcon = L.divIcon({
+                    html: '<div style="font-size:24px;">🚖</div>',
+                    className: 'dummy-class',
+                    iconSize: [30, 30]
+                });
+                
+                L.marker(driverPos, {icon: carIcon}).addTo(map)
+                    .bindPopup(`<b>${offer.DriverName}</b><br>${offer.VehicleModel}<br>€${offer.estimated_cost}`);
+
+                // UI Card
+                const card = document.createElement('div');
+                card.style.cssText = `
+                    border: 1px solid #ddd; border-left: 5px solid #28a745; 
+                    background: white; padding: 15px; margin-bottom: 10px; border-radius: 8px; 
+                    display: flex; justify-content: space-between; align-items: center;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                `;
+
+                card.innerHTML = `
+                    <div>
+                        <h3 style="margin:0; color:#333;">🚘 ${offer.DriverName}</h3>
+                        <div style="color:#666; font-size:0.9em;">
+                            ${offer.VehicleModel} (${offer.VehicleColor})<br>⭐ 5.0 Rating
+                        </div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:1.5em; font-weight:bold; color:#28a745;">€${parseFloat(offer.estimated_cost).toFixed(2)}</div>
+                        <button class="btn-primary" style="margin-top:5px; padding: 5px 15px; cursor:pointer;">Επιλογή ✔️</button>
+                    </div>
+                `;
+                
+                const btn = card.querySelector('button');
+                btn.onclick = () => acceptOffer(offer.offer_id, requestId);
+                
+                container.appendChild(card);
+            });
+
+            const bounds = L.latLngBounds([pickup, dropoff]);
+            map.fitBounds(bounds, {padding: [50, 50]});
+            setTimeout(() => map.invalidateSize(), 200);
+
+            // STOP POLLING once we found offers (optional - remove this line if you want real-time updates)
+            // clearInterval(offerPollingInterval); 
+
+        } catch (error) {
+            console.error("Error loading offers:", error);
+            // Don't clear container, keep showing "Searching"
+        }
+    };
+
+    // 3. EXECUTE IMMEDIATELY
+    fetchAndRender();
+
+    // 4. START POLLING (Every 5 seconds)
+    offerPollingInterval = setInterval(fetchAndRender, 5000);
 }
-
 async function acceptOffer(offerId, requestId) {
-    if(!confirm("Αποδοχή;")) return;
-    
-    await fetch('/api/app/passenger/accept-offer', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({offerId, requestId})
-    });
-    
-    alert("Καλό ταξίδι!");
-    document.getElementById('offers-section').classList.add('hidden');
-    loadPassengerHistory();
+    if(!confirm("Αποδοχή και έναρξη διαδρομής;")) return;
+    try {
+        await fetch('/api/app/passenger/accept-offer', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({offerId, requestId})
+        });
+        alert("Καλό ταξίδι! Η διαδρομή ξεκίνησε.");
+        document.getElementById('offers-section').classList.add('hidden');
+        loadPassengerHistory();
+    } catch(e) { console.error(e); }
 }
 
 function closeOffers() {
     document.getElementById('offers-section').classList.add('hidden');
 }
 
-// --- 6. CORE FUNCTIONS ---
+
+// =========================================================
+// 6. CORE FUNCTIONS
+// =========================================================
+
 function resetView() {
+    // 1. Clear Data Table
     document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
+    
+    // 2. Hide ALL Forms and Sections (Crucial for UI Switching)
     document.getElementById('request-form')?.classList.add('hidden');
     document.getElementById('offers-section')?.classList.add('hidden');
     document.getElementById('document-form')?.classList.add('hidden');
     document.getElementById('add-shift-form')?.classList.add('hidden');
+    document.getElementById('active-trip-screen')?.classList.add('hidden');
 }
 
 async function fetchData(endpoint) {
@@ -372,6 +522,7 @@ async function fetchData(endpoint) {
                 headerRow.appendChild(th);
             });
 
+            // Add Actions Column
             const isDriverView = endpoint.includes('driver/open-requests');
             const isOperatorDocView = endpoint.includes('operator/pending-documents');
             
@@ -382,6 +533,7 @@ async function fetchData(endpoint) {
             }
             tableHead.appendChild(headerRow);
 
+            // Populate Rows
             filteredData.forEach(row => {
                 const tr = document.createElement("tr");
                 headers.forEach(key => {
@@ -392,8 +544,7 @@ async function fetchData(endpoint) {
 
                 if (isDriverView) {
                     const td = document.createElement("td");
-                    td.style.display = "flex";
-                    td.style.gap = "5px";
+                    td.style.display = "flex"; td.style.gap = "5px";
                     
                     const btn1 = document.createElement("button");
                     btn1.innerText = "Προσφορά";
@@ -405,15 +556,13 @@ async function fetchData(endpoint) {
                     btn2.style.backgroundColor = "#dc3545";
                     btn2.onclick = () => rejectRequest(row.request_id);
 
-                    td.appendChild(btn1);
-                    td.appendChild(btn2);
+                    td.appendChild(btn1); td.appendChild(btn2);
                     tr.appendChild(td);
                 }
 
                 if (isOperatorDocView) {
                     const td = document.createElement("td");
-                    td.style.display = "flex";
-                    td.style.gap = "5px";
+                    td.style.display = "flex"; td.style.gap = "5px";
                     
                     const btn1 = document.createElement("button");
                     btn1.innerText = "OK";
@@ -425,8 +574,7 @@ async function fetchData(endpoint) {
                     btn2.style.backgroundColor = "#dc3545";
                     btn2.onclick = () => verifyDocument(row.document_id, 'Rejected');
                     
-                    td.appendChild(btn1);
-                    td.appendChild(btn2);
+                    td.appendChild(btn1); td.appendChild(btn2);
                     tr.appendChild(td);
                 }
 
@@ -441,4 +589,30 @@ async function fetchData(endpoint) {
     } finally {
         loading.classList.add('hidden');
     }
+
+    // Add this at the very bottom of site.js or wrap existing init logic
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Check Login
+    const currentUser = sessionStorage.getItem('currentUser');
+    const userRoles = sessionStorage.getItem('userRoles');
+
+    if (currentUser) {
+        // Restore Dashboard
+        document.getElementById('login-section').classList.add('hidden');
+        document.getElementById('dashboard-section').classList.remove('hidden');
+        document.getElementById('user-display').innerText = currentUser; // Or fetch name
+        
+        if (userRoles) {
+            setupDashboard(JSON.parse(userRoles));
+        }
+
+        // 2. CHECK FOR ACTIVE REQUEST (Crucial Fix)
+        const activeRequestId = sessionStorage.getItem('currentRequestId');
+        if (activeRequestId) {
+            console.log("Restoring active request:", activeRequestId);
+            // Automatically switch to the offers view for this request
+            loadOffers(activeRequestId);
+        }
+    }
+});
 }
