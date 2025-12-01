@@ -48,7 +48,7 @@ namespace OSRH.Api.Controllers
                 roles = roleList
             });
         }
-
+        
         // ==========================================
         // 2. ADMIN / REPORTS
         // ==========================================
@@ -66,6 +66,47 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
+        [HttpGet("admin/service-types")]
+        public async Task<IActionResult> GetServiceTypes()
+        {
+            var message = new SqlParameter("@Message", SqlDbType.NVarChar, 255)
+            {
+                Direction = ParameterDirection.Output
+            };
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetServiceTypes",
+                new[] 
+                { 
+                    new SqlParameter("@IncludeInactive", 0), 
+                    message 
+                },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // ==========================================
+        // ADMIN: VEHICLE STANDARDS
+        // ==========================================
+        [HttpGet("admin/vehicle-standards")]
+        public async Task<IActionResult> GetVehicleStandards()
+        {
+            var message = new SqlParameter("@Message", SqlDbType.NVarChar, 255)
+            {
+                Direction = ParameterDirection.Output
+            };
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetVehicleTypes",
+                new[] { message },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+ 
         // ==========================================
         // 3. PASSENGER FEATURES
         // ==========================================

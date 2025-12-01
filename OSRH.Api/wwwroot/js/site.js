@@ -65,6 +65,49 @@ async function loadReport(type) {
     fetchData(`/api/app/reports/${type}`);
 }
 
+async function loadCostReport() {
+    document.getElementById("table-title").innerText = "Ανάλυση Κόστους ανά Υπηρεσία";
+    resetView();
+
+    try {
+        const response = await fetch("/api/app/reports/cost");
+
+        if (!response.ok) {
+            throw new Error("Σφάλμα από τον server");
+        }
+
+        const data = await response.json();
+        populateTable(data);
+
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    }
+}
+
+async function loadDriverPerformance() {
+    document.getElementById("table-title").innerText = "Απόδοση Οδηγών & Βαθμολογίες";
+    resetView();
+
+    try {
+        const response = await fetch("/api/app/reports/driver-performance");
+
+        if (!response.ok) {
+            throw new Error("Σφάλμα από τον server");
+        }
+
+        const data = await response.json();
+        populateTable(data);
+
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    }
+}
+
+
 // --- 3. OPERATOR ---
 async function loadPendingDocuments() {
     document.getElementById('table-title').innerText = 'Έγγραφα προς Έλεγχο (Pending)';
