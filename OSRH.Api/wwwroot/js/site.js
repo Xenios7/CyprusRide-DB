@@ -51,14 +51,105 @@ function logout() {
 // =========================================================
 // 2. ADMIN & REPORTS
 // =========================================================
-async function loadReport(type) {
-    const titleMap = {
-        'cost': 'Ανάλυση Κόστους ανά Υπηρεσία',
-        'driver-performance': 'Απόδοση Οδηγών & Βαθμολογίες'
-    };
-    document.getElementById('table-title').innerText = titleMap[type];
+
+// --- WORKING REPORTS (From Doc 6 - Tousis's explicit functions) ---
+async function loadCostReport() {
+    document.getElementById("table-title").innerText = "Ανάλυση Κόστους ανά Υπηρεσία";
     resetView();
-    fetchData(`/api/app/reports/${type}`);
+
+    try {
+        const response = await fetch("/api/app/reports/cost");
+        if (!response.ok) throw new Error("Σφάλμα από τον server");
+        const data = await response.json();
+        populateTable(data);
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    }
+}
+
+async function loadDriverPerformance() {
+    document.getElementById("table-title").innerText = "Απόδοση Οδηγών & Βαθμολογίες";
+    resetView();
+
+    try {
+        const response = await fetch("/api/app/reports/driver-performance");
+        if (!response.ok) throw new Error("Σφάλμα από τον server");
+        const data = await response.json();
+        populateTable(data);
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    }
+}
+
+// --- NEW ADMIN FEATURES (From Doc 6 - Tousis's additions) ---
+function loadAllUsers() {
+    document.getElementById('table-title').innerText = "Όλοι οι Χρήστες";
+    resetView();
+    fetchData('/api/admin/users');
+}
+
+function loadPendingDriverRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Οδηγών";
+    resetView();
+    fetchData('/api/admin/pending-drivers');
+}
+
+function loadPendingOperatorRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Λειτουργών";
+    resetView();
+    fetchData('/api/admin/pending-operators');
+}
+
+function loadAllDriverDocuments() {
+    document.getElementById('table-title').innerText = "Έγγραφα Οδηγών";
+    resetView();
+    fetchData('/api/admin/driver-documents');
+}
+
+function loadServiceTypes() {
+    document.getElementById('table-title').innerText = "Τύποι Υπηρεσιών";
+    resetView();
+    fetchData('/api/admin/service-types');
+}
+
+function loadVehicleStandards() {
+    document.getElementById('table-title').innerText = "Προδιαγραφές Οχημάτων";
+    resetView();
+    fetchData('/api/admin/vehicle-standards');
+}
+
+function loadGDPRRequests() {
+    document.getElementById('table-title').innerText = "GDPR Αιτήματα Διαγραφής";
+    resetView();
+    fetchData('/api/admin/gdpr-requests');
+}
+
+function loadPayments() {
+    document.getElementById('table-title').innerText = "Πληρωμές & Προμήθειες";
+    resetView();
+    fetchData('/api/admin/payments');
+}
+
+function loadSystemLogs() {
+    document.getElementById('table-title').innerText = "Ιστορικό Ενεργειών";
+    resetView();
+    fetchData('/api/admin/logs');
+}
+
+function loadRouteStatistics() {
+    document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
+    resetView();
+    fetchData('/api/admin/reports/route-statistics');
+}
+
+function loadDriverIncome() {
+    document.getElementById('table-title').innerText = "Έσοδα Οδηγών";
+    resetView();
+    fetchData('/api/admin/reports/driver-income');
 }
 
 // =========================================================
@@ -179,9 +270,6 @@ async function makeOffer(requestId, estimatedFare) {
     const costInput = prompt("Εισάγετε το κόστος της προσφοράς σας (€):", estimatedFare);
     if (costInput === null) return;
 
-    // Use specific driver details (ideally fetched from session/backend)
-    // For demo, we hardcode to the current logged-in driver context handled by SP logic usually, 
-    // but the API expects IDs. For this project phase, we assume ID 1 for testing if not fully dynamic.
     const driverId = 1; 
     const vehicleId = 1; 
 
@@ -273,14 +361,13 @@ async function updateTripStatus(tripId, status) {
 
         // IF TRIP IS COMPLETED -> SHOW RATING POPUP
         if (status === 'Completed') {
-            document.getElementById('active-trip-screen').classList.add('hidden'); // Hide trip screen
-            showRatingModal(tripId); // Show rating
+            document.getElementById('active-trip-screen').classList.add('hidden');
+            showRatingModal(tripId);
         } else {
-            showActiveTripScreen(); // Refresh UI if just starting
+            showActiveTripScreen();
         }
     } catch (e) { console.error(e); }
 }
-
 
 // =========================================================
 // 5. PASSENGER FUNCTIONS
@@ -296,7 +383,6 @@ async function submitRequest() {
     const currentUser = sessionStorage.getItem('currentUser');
     const serviceId = document.getElementById('service-select').value;
     const notes = document.getElementById('request-notes').value;
-    // Hardcoded demo coordinates if input fields missing, otherwise read inputs
     const pickupLat = 35.1700;
     const pickupLon = 33.3600;
     const dropoffLat = 34.9200;
@@ -336,14 +422,13 @@ async function loadPassengerHistory() {
         const history = await response.json();
         
         if (history.length === 0) {
-            // If no history, maybe they have an open request?
-            // For now just show empty table
+            // Empty history
         }
         fetchData(`/api/app/passenger/history/${currentUser}`);
     } catch (error) { console.error(error); }
 }
 
-// Global variable for the timer (Put this at top of site.js)
+// Global variable for offer polling
 let offerPollingInterval; 
 
 // --- ENHANCED OFFERS & MAP (With Auto-Refresh) ---
@@ -354,13 +439,10 @@ async function loadOffers(requestId) {
     
     const container = document.getElementById('offers-container');
     
-    // 1. CLEAR OLD TIMER (Crucial to prevent duplicate loops)
     if (offerPollingInterval) clearInterval(offerPollingInterval);
 
-    // 2. DEFINE THE FETCH LOGIC
     const fetchAndRender = async () => {
         try {
-            // Check if user left the screen
             if (section.classList.contains('hidden')) {
                 clearInterval(offerPollingInterval);
                 return;
@@ -369,22 +451,15 @@ async function loadOffers(requestId) {
             const response = await fetch(`/api/app/passenger/offers/${requestId}`);
             const offers = await response.json();
             
-            // If no offers yet, show waiting message
             if(offers.length === 0) { 
-                // Only update text if it's not already there (prevents flickering)
                 if(!container.innerHTML.includes("Αναζήτηση")) {
                     container.innerHTML = "<p>🔍 Αναζήτηση οδηγών... (Ανανέωση κάθε 5δ)</p>"; 
                 }
                 return; 
             }
 
-            // --- OFFERS FOUND! RENDER THEM ---
-            
-            // Clear "Searching..." text
             container.innerHTML = ""; 
 
-            // --- MAP SETUP ---
-            // Only initialize map if it doesn't exist or if we need to reset markers
             if (map) { 
                 map.remove(); 
                 map = null; 
@@ -395,7 +470,6 @@ async function loadOffers(requestId) {
                 attribution: '© OpenStreetMap'
             }).addTo(map);
 
-            // Coordinates from first offer
             const pickup = [parseFloat(offers[0].pickup_latitude), parseFloat(offers[0].pickup_longitude)];
             const dropoff = [parseFloat(offers[0].dropoff_latitude), parseFloat(offers[0].dropoff_longitude)];
             
@@ -407,9 +481,7 @@ async function loadOffers(requestId) {
             
             L.polyline([pickup, dropoff], {color: '#3388ff', dashArray: '5, 10', weight: 4}).addTo(map);
             
-            // --- CARDS & MARKERS ---
             offers.forEach((offer) => {
-                // Driver Marker (Offset slightly)
                 const offset = (Math.random() - 0.5) * 0.005; 
                 const driverPos = [pickup[0] + offset, pickup[1] + offset];
                 
@@ -422,7 +494,6 @@ async function loadOffers(requestId) {
                 L.marker(driverPos, {icon: carIcon}).addTo(map)
                     .bindPopup(`<b>${offer.DriverName}</b><br>${offer.VehicleModel}<br>€${offer.estimated_cost}`);
 
-                // UI Card
                 const card = document.createElement('div');
                 card.style.cssText = `
                     border: 1px solid #ddd; border-left: 5px solid #28a745; 
@@ -435,7 +506,7 @@ async function loadOffers(requestId) {
                     <div>
                         <h3 style="margin:0; color:#333;">🚘 ${offer.DriverName}</h3>
                         <div style="color:#666; font-size:0.9em;">
-                            ${offer.VehicleModel} (${offer.VehicleColor})<br>⭐ 5.0 Rating
+                            ${offer.VehicleModel}<br>⭐ 5.0 Rating
                         </div>
                     </div>
                     <div style="text-align:right;">
@@ -454,21 +525,15 @@ async function loadOffers(requestId) {
             map.fitBounds(bounds, {padding: [50, 50]});
             setTimeout(() => map.invalidateSize(), 200);
 
-            // STOP POLLING once we found offers (optional - remove this line if you want real-time updates)
-            // clearInterval(offerPollingInterval); 
-
         } catch (error) {
             console.error("Error loading offers:", error);
-            // Don't clear container, keep showing "Searching"
         }
     };
 
-    // 3. EXECUTE IMMEDIATELY
     fetchAndRender();
-
-    // 4. START POLLING (Every 5 seconds)
     offerPollingInterval = setInterval(fetchAndRender, 5000);
 }
+
 async function acceptOffer(offerId, requestId) {
     if(!confirm("Αποδοχή και έναρξη διαδρομής;")) return;
     try {
@@ -487,16 +552,54 @@ function closeOffers() {
     document.getElementById('offers-section').classList.add('hidden');
 }
 
+// =========================================================
+// 6. RATING SYSTEM (From Doc 5)
+// =========================================================
+let currentRatingTripId = null;
+
+function showRatingModal(tripId) {
+    currentRatingTripId = tripId;
+    document.getElementById('rating-modal').classList.remove('hidden');
+}
+
+function closeRatingModal() {
+    document.getElementById('rating-modal').classList.add('hidden');
+    resetView();
+}
+
+async function submitRating() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    const rating = document.getElementById('rating-stars').value;
+    const comment = document.getElementById('rating-comment').value;
+
+    try {
+        const response = await fetch('/api/app/feedback/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                tripId: currentRatingTripId, 
+                username: currentUser, 
+                rating: rating, 
+                comment: comment 
+            })
+        });
+
+        if (response.ok) {
+            alert("Thank you for your feedback!");
+            closeRatingModal();
+        } else {
+            alert("Error submitting rating.");
+        }
+    } catch (e) { console.error(e); }
+}
 
 // =========================================================
-// 6. CORE FUNCTIONS
+// 7. CORE FUNCTIONS
 // =========================================================
 
 function resetView() {
-    // 1. Clear Data Table
     document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
     
-    // 2. Hide ALL Forms and Sections (Crucial for UI Switching)
     document.getElementById('request-form')?.classList.add('hidden');
     document.getElementById('offers-section')?.classList.add('hidden');
     document.getElementById('document-form')?.classList.add('hidden');
@@ -530,7 +633,6 @@ async function fetchData(endpoint) {
                 headerRow.appendChild(th);
             });
 
-            // Add Actions Column
             const isDriverView = endpoint.includes('driver/open-requests');
             const isOperatorDocView = endpoint.includes('operator/pending-documents');
             
@@ -541,7 +643,6 @@ async function fetchData(endpoint) {
             }
             tableHead.appendChild(headerRow);
 
-            // Populate Rows
             filteredData.forEach(row => {
                 const tr = document.createElement("tr");
                 headers.forEach(key => {
@@ -597,69 +698,64 @@ async function fetchData(endpoint) {
     } finally {
         loading.classList.add('hidden');
     }
+}
 
-    // Add this at the very bottom of site.js or wrap existing init logic
+// Helper function for admin reports (needed by loadCostReport/loadDriverPerformance)
+function populateTable(data) {
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+
+    tableHead.innerHTML = "";
+    tableBody.innerHTML = "";
+
+    if (data.length === 0) {
+        tableBody.innerHTML = "<tr><td colspan='100%'>Δεν βρέθηκαν δεδομένα.</td></tr>";
+        return;
+    }
+
+    // Headers
+    const headers = Object.keys(data[0]);
+    const headerRow = document.createElement("tr");
+    headers.forEach(key => {
+        const th = document.createElement("th");
+        th.innerText = key;
+        headerRow.appendChild(th);
+    });
+    tableHead.appendChild(headerRow);
+
+    // Rows
+    data.forEach(row => {
+        const tr = document.createElement("tr");
+        headers.forEach(key => {
+            const td = document.createElement("td");
+            td.innerText = row[key] !== null ? row[key] : '-';
+            tr.appendChild(td);
+        });
+        tableBody.appendChild(tr);
+    });
+}
+
+// =========================================================
+// 8. SESSION RESTORE ON PAGE LOAD (From Doc 5 - CRITICAL)
+// =========================================================
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Check Login
     const currentUser = sessionStorage.getItem('currentUser');
     const userRoles = sessionStorage.getItem('userRoles');
 
     if (currentUser) {
-        // Restore Dashboard
         document.getElementById('login-section').classList.add('hidden');
         document.getElementById('dashboard-section').classList.remove('hidden');
-        document.getElementById('user-display').innerText = currentUser; // Or fetch name
+        document.getElementById('user-display').innerText = currentUser;
         
         if (userRoles) {
             setupDashboard(JSON.parse(userRoles));
         }
 
-        // 2. CHECK FOR ACTIVE REQUEST (Crucial Fix)
+        // Restore active request if exists
         const activeRequestId = sessionStorage.getItem('currentRequestId');
         if (activeRequestId) {
             console.log("Restoring active request:", activeRequestId);
-            // Automatically switch to the offers view for this request
             loadOffers(activeRequestId);
         }
-
-        // --- RATING SYSTEM ---
-let currentRatingTripId = null;
-
-function showRatingModal(tripId) {
-    currentRatingTripId = tripId;
-    document.getElementById('rating-modal').classList.remove('hidden');
-}
-
-function closeRatingModal() {
-    document.getElementById('rating-modal').classList.add('hidden');
-    resetView(); // Go back to dashboard
-}
-
-async function submitRating() {
-    const currentUser = sessionStorage.getItem('currentUser');
-    const rating = document.getElementById('rating-stars').value;
-    const comment = document.getElementById('rating-comment').value;
-
-    try {
-        const response = await fetch('/api/app/feedback/submit', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                tripId: currentRatingTripId, 
-                username: currentUser, 
-                rating: rating, 
-                comment: comment 
-            })
-        });
-
-        if (response.ok) {
-            alert("Thank you for your feedback!");
-            closeRatingModal();
-        } else {
-            alert("Error submitting rating.");
-        }
-    } catch (e) { console.error(e); }
-}
     }
 });
-}
