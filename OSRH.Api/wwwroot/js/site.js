@@ -264,13 +264,21 @@ async function showActiveTripScreen() {
 async function updateTripStatus(tripId, status) {
     if(!confirm(`Επιβεβαίωση αλλαγής κατάστασης σε: ${status}?`)) return;
     
-    await fetch('/api/app/driver/update-trip', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ tripId, status })
-    });
-    
-    showActiveTripScreen(); // Refresh UI
+    try {
+        await fetch('/api/app/driver/update-trip', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ tripId, status })
+        });
+
+        // IF TRIP IS COMPLETED -> SHOW RATING POPUP
+        if (status === 'Completed') {
+            document.getElementById('active-trip-screen').classList.add('hidden'); // Hide trip screen
+            showRatingModal(tripId); // Show rating
+        } else {
+            showActiveTripScreen(); // Refresh UI if just starting
+        }
+    } catch (e) { console.error(e); }
 }
 
 
@@ -613,6 +621,45 @@ document.addEventListener('DOMContentLoaded', () => {
             // Automatically switch to the offers view for this request
             loadOffers(activeRequestId);
         }
+
+        // --- RATING SYSTEM ---
+let currentRatingTripId = null;
+
+function showRatingModal(tripId) {
+    currentRatingTripId = tripId;
+    document.getElementById('rating-modal').classList.remove('hidden');
+}
+
+function closeRatingModal() {
+    document.getElementById('rating-modal').classList.add('hidden');
+    resetView(); // Go back to dashboard
+}
+
+async function submitRating() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    const rating = document.getElementById('rating-stars').value;
+    const comment = document.getElementById('rating-comment').value;
+
+    try {
+        const response = await fetch('/api/app/feedback/submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                tripId: currentRatingTripId, 
+                username: currentUser, 
+                rating: rating, 
+                comment: comment 
+            })
+        });
+
+        if (response.ok) {
+            alert("Thank you for your feedback!");
+            closeRatingModal();
+        } else {
+            alert("Error submitting rating.");
+        }
+    } catch (e) { console.error(e); }
+}
     }
 });
 }

@@ -197,6 +197,8 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
     }
     catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
 }
+
+
         // 15. DRIVER: Get Active Trip
         [HttpGet("driver/active-trip/{username}")]
         public async Task<IActionResult> GetActiveTrip(string username)
@@ -219,6 +221,25 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
                 CommandType.StoredProcedure);
             
             return Ok(new { message = "Trip updated!" });
+        }
+
+        // 17. FEEDBACK: Submit Rating
+        [HttpPost("feedback/submit")]
+        public async Task<IActionResult> SubmitFeedback([FromBody] JsonObject data)
+        {
+            try
+            {
+                var parameters = new[] {
+                    new SqlParameter("@TripId", int.Parse(data["tripId"]?.ToString())),
+                    new SqlParameter("@ReviewerUsername", data["username"]?.ToString()),
+                    new SqlParameter("@Rating", int.Parse(data["rating"]?.ToString())),
+                    new SqlParameter("@Comment", data["comment"]?.ToString() ?? "")
+                };
+
+                await _db.ExecuteAsync("dbo.sp_SubmitFeedback", parameters, CommandType.StoredProcedure);
+                return Ok(new { message = "Rating submitted successfully!" });
+            }
+            catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
         }
 
         // ==========================================
