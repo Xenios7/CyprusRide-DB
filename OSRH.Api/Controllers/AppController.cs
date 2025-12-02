@@ -110,30 +110,93 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 3. PASSENGER FEATURES
         // ==========================================
+        // [HttpPost("passenger/request")]
+        // public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
+        // {
+        //     // Hardcoded coords for demo
+        //     var parameters = new SqlParameter[] {
+        //         new SqlParameter("@Username", reqData["username"]!.ToString()),
+        //         new SqlParameter("@ServiceId", int.Parse(reqData["serviceId"]!.ToString())),
+        //         new SqlParameter("@EstimatedFare", 15.50m),
+        //         new SqlParameter("@PickupLat", 35.1700m),
+        //         new SqlParameter("@PickupLon", 33.3600m),
+        //         new SqlParameter("@DropoffLat", 34.9200m),
+        //         new SqlParameter("@DropoffLon", 33.6300m),
+        //         new SqlParameter("@Notes", reqData["notes"]?.ToString() ?? "")
+        //     };
+
+        //     DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
+            
+        //     if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
+        //     {
+        //         return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = Convert.ToInt32(dt.Rows[0]["RequestId"]) });
+        //     }
+        //     return BadRequest(new { message = "Failed to create request." });
+        // }
+
+// 5. PASSENGER: Create New Request
         [HttpPost("passenger/request")]
         public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
-            // Hardcoded coords for demo
+            // ... (Your existing parameter extraction code) ...
+            string username = reqData["username"]!.ToString();
+            int serviceId = int.Parse(reqData["serviceId"]!.ToString());
+            string notes = reqData["notes"]?.ToString() ?? "";
+
+            // Hardcoded coords for demo (or from input)
+            decimal pickupLat = 35.1700m; decimal pickupLon = 33.3600m;
+            decimal dropoffLat = 34.9200m; decimal dropoffLon = 33.6300m;
+            decimal estimatedFare = 15.50m; 
+
             var parameters = new SqlParameter[] {
-                new SqlParameter("@Username", reqData["username"]!.ToString()),
-                new SqlParameter("@ServiceId", int.Parse(reqData["serviceId"]!.ToString())),
-                new SqlParameter("@EstimatedFare", 15.50m),
-                new SqlParameter("@PickupLat", 35.1700m),
-                new SqlParameter("@PickupLon", 33.3600m),
-                new SqlParameter("@DropoffLat", 34.9200m),
-                new SqlParameter("@DropoffLon", 33.6300m),
-                new SqlParameter("@Notes", reqData["notes"]?.ToString() ?? "")
+                new SqlParameter("@Username", username),
+                new SqlParameter("@ServiceId", serviceId),
+                new SqlParameter("@EstimatedFare", estimatedFare),
+                new SqlParameter("@PickupLat", pickupLat),
+                new SqlParameter("@PickupLon", pickupLon),
+                new SqlParameter("@DropoffLat", dropoffLat),
+                new SqlParameter("@DropoffLon", dropoffLon),
+                new SqlParameter("@Notes", notes)
             };
 
+            // 1. Create the Request in Database
             DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
             
             if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
             {
-                return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = Convert.ToInt32(dt.Rows[0]["RequestId"]) });
+                // Get the ID of the request we just created
+                int newRequestId = Convert.ToInt32(dt.Rows[0]["RequestId"]);
+
+                // =================================================================
+                // 🤖 NEW CODE: TRIGGER AUTO-OFFERS IMMEDIATELY
+                // =================================================================
+                try 
+                {
+                    var botParams = new[] {
+                        new SqlParameter("@RequestID", newRequestId),
+                        new SqlParameter("@MaxDistance", 15.0m), // Search within 15km
+                        new SqlParameter("@MaxOffers", 3),       // Create 3 offers
+                        // Output parameter handling requires specific setup, 
+                        // but for simplicity in ExecuteAsync we can often omit it if we don't read it back immediately
+                        // or define it simply:
+                        new SqlParameter("@Message", "") { Direction = ParameterDirection.Output, Size = 255 }
+                    };
+
+                    // This calls the procedure you created to fill the OFFER table
+                    await _db.ExecuteAsync("dbo.sp_AutoGenerateOffersForRequest", botParams, CommandType.StoredProcedure);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail the request (so the user still sees "Request Sent")
+                    Console.WriteLine("Auto-Offer Error: " + ex.Message);
+                }
+                // =================================================================
+
+                return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
             }
             return BadRequest(new { message = "Failed to create request." });
         }
-
+        
         [HttpGet("passenger/history/{username}")]
         public async Task<IActionResult> GetPassengerHistory(string username)
         {
