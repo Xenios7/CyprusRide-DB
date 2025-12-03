@@ -369,6 +369,59 @@ async function updateTripStatus(tripId, status) {
     } catch (e) { console.error(e); }
 }
 
+//  Driver earnings screen.
+async function loadDriverEarnings() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = 'Τα Έσοδά Μου';
+    resetView();
+
+    try {
+        const response = await fetch(`/api/app/driver/earnings/${currentUser}`);
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
+
+        const amount = data.length > 0 ? data[0].total_earnings : 0;
+
+        const tableBody = document.querySelector("#data-table tbody");
+        const tableHead = document.querySelector("#data-table thead");
+        tableHead.innerHTML = "<tr><th>Σύνολο Εσόδων</th></tr>";
+        tableBody.innerHTML = `<tr><td>€${Number(amount).toFixed(2)}</td></tr>`;
+    }
+    catch (error) {
+        console.error(error);
+        alert("Σφάλμα φόρτωσης εσόδων.");
+    }
+}
+
+//  GDPR delete account.
+async function deleteDriverAccount() {
+    const currentUser = sessionStorage.getItem('currentUser');
+
+    if (!confirm("⚠ Είστε σίγουροι ότι θέλετε να διαγράψετε τον λογαριασμό σας; Αυτή η ενέργεια είναι μη αναστρέψιμη.")) return;
+
+    try {
+        const response = await fetch('/api/app/driver/delete-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: currentUser })
+        });
+
+        if (response.ok) {
+            alert("Ο λογαριασμός σας διαγράφηκε (GDPR). Θα αποσυνδεθείτε.");
+            sessionStorage.clear();
+            location.reload();
+        }
+        else {
+            alert("Σφάλμα GDPR διαγραφής.");
+        }
+    }
+    catch(e) {
+        console.error(e);
+        alert("Σφάλμα σύνδεσης.");
+    }
+}
+
 // =========================================================
 // 5. PASSENGER FUNCTIONS
 // =========================================================
@@ -552,6 +605,157 @@ function closeOffers() {
     document.getElementById('offers-section').classList.add('hidden');
 }
 
+let fullCreditData = [];  // For filters.
+let filteredCreditData = [];
+
+async function loadPassengerCredits() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = '💳 Πληρωμές & Credits';
+    resetView();
+
+    // Show summary block.
+    document.getElementById("credit-summary").classList.remove("hidden");
+
+    try {
+        const response = await fetch(`/api/app/passenger/credits/${currentUser}`);
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
+        fullCreditData = data;
+        filteredCreditData = [...data];
+
+        if (data.length === 0) {
+            alert("Δεν υπάρχουν συναλλαγές.");
+            return;
+        }
+
+        const totalCredits = data[0].total_credits ?? 0;
+
+        // Monthly spending
+        const now = new Date();
+        const monthly = data
+            .filter(x => new Date(x.date).getMonth() === now.getMonth())
+            .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+
+        // Average spend per trip
+        const avg = data.length > 1 
+            ? (data.slice(1).reduce((s,x)=>s+Number(x.amount||0),0) / (data.length-1))
+            : 0;
+
+        document.getElementById("credit-monthly").innerHTML =
+            `📅 Έξοδα τρέχοντος μήνα: <b>€${monthly.toFixed(2)}</b>`;
+
+        document.getElementById("credit-average").innerHTML =
+            `📈 Μέσο ποσό ανά διαδρομή: <b>€${avg.toFixed(2)}</b>`;
+
+        const ctx = document.getElementById("creditChart");
+        if (window.creditChartInstance) window.creditChartInstance.destroy();
+
+        const categories = {};
+        data.slice(1).forEach(x => {
+            let key = x.description || "Άλλο";
+            categories[key] = (categories[key] || 0) + Number(x.amount || 0);
+        });
+
+        window.creditChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(categories),
+                datasets: [{
+                    data: Object.values(categories),
+                    backgroundColor: [
+                        '#007bff','#28a745','#ffc107','#dc3545','#6f42c1'
+                    ]
+                }]
+            }
+        });
+
+        renderCreditTable(filteredCreditData, totalCredits);
+
+    } catch (error) {
+        console.error(error);
+        alert("Σφάλμα φόρτωσης credits.");
+    }
+}
+
+// =========================================================
+// RENDER TABLE
+// =========================================================
+function renderCreditTable(data, totalCredits) {
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+
+    tableHead.innerHTML = `
+        <tr><th>Υπόλοιπο</th></tr>
+        <tr><td style="font-size:20px;font-weight:bold;">€${totalCredits}</td></tr>
+        <tr>
+            <th>Trip</th>
+            <th>Ημερομηνία</th>
+            <th>Ποσό</th>
+            <th>Περιγραφή</th>
+        </tr>
+    `;
+
+    tableBody.innerHTML = "";
+
+    data.slice(1).forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <a href="#" onclick="openCreditDetails(${row.trip_id}, '${row.description}', '${row.date}', ${row.amount})">
+                    ${row.trip_id}
+                </a>
+            </td>
+            <td>${row.date}</td>
+            <td>€${row.amount}</td>
+            <td>${row.description}</td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+
+// =========================================================
+// FILTERS
+// =========================================================
+function applyCreditFilter() {
+    const value = document.getElementById("credit-filter").value;
+    filteredCreditData = [...fullCreditData];
+
+    if (value === "large") {
+        filteredCreditData = filteredCreditData.filter(x => x.amount > 10);
+    }
+    else if (value === "month") {
+        const now = new Date();
+        filteredCreditData = filteredCreditData.filter(x =>
+            new Date(x.date).getMonth() === now.getMonth()
+        );
+    }
+    else if (value === "sortDesc") {
+        filteredCreditData.sort((a,b)=>b.amount - a.amount);
+    }
+    else if (value === "sortAsc") {
+        filteredCreditData.sort((a,b)=>a.amount - b.amount);
+    }
+
+    const totalCredits = fullCreditData[0].total_credits;
+    renderCreditTable(filteredCreditData, totalCredits);
+}
+
+// =========================================================
+// MODAL: Credit Details
+// =========================================================
+function openCreditDetails(id, desc, date, amount) {
+    alert(
+        `Λεπτομέρειες Συναλλαγής\n\n` +
+        `Trip ID: ${id}\n` +
+        `Ποσό: €${amount}\n` +
+        `Ημ/νία: ${date}\n` +
+        `Περιγραφή: ${desc}`
+    );
+}
+
+
 // =========================================================
 // 6. RATING SYSTEM (From Doc 5)
 // =========================================================
@@ -605,6 +809,7 @@ function resetView() {
     document.getElementById('document-form')?.classList.add('hidden');
     document.getElementById('add-shift-form')?.classList.add('hidden');
     document.getElementById('active-trip-screen')?.classList.add('hidden');
+    document.getElementById("credit-summary")?.classList.add("hidden");
 }
 
 async function fetchData(endpoint) {

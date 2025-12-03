@@ -36,6 +36,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -107,12 +108,15 @@
                     <button onclick="showAddShiftForm()" class="btn-info" style="background-color: #17a2b8; color: white;">➕ Προσθήκη Βάρδιας</button>
                     
                     <button onclick="showActiveTripScreen()" class="btn-success" style="background-color: #28a745; color: white;">🚗 Τρέχουσα Διαδρομή</button>
+                
+                    <button onclick="loadDriverEarnings()">💰 Τα Έσοδά Μου</button>
                 </div>
             </div>
 
             <div id="passenger-features" class="hidden">
                 <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
                 <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
+                <button onclick="loadPassengerCredits()"style="background-color: #6f42c1; color:white;">💳 Πληρωμές / Credits</button>
             </div>
         </div>
 
@@ -253,6 +257,24 @@
         <!-- DATA TABLE -->
         <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
         <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
+
+        <div id="credit-summary" class="hidden" style="margin-top:20px;">
+        <h3>📊 Σύνοψη Πληρωμών</h3>
+        <p id="credit-monthly"></p>
+        <p id="credit-average"></p>
+
+        <canvas id="creditChart" style="max-width:400px; height:300px; margin:20px auto; display:block;"></canvas>
+
+        <!-- Filters -->
+        <label style="font-weight:bold;">Φίλτρα:</label>
+        <select id="credit-filter" onchange="applyCreditFilter()" style="padding:8px;border-radius:4px;">
+            <option value="all">Όλες οι Συναλλαγές</option>
+            <option value="large">Μεγάλες (> €10)</option>
+            <option value="month">Αυτός ο Μήνας</option>
+            <option value="sortDesc">Ταξινόμηση: Μεγαλύτερα Πρώτα</option>
+            <option value="sortAsc">Ταξινόμηση: Μικρότερα Πρώτα</option>
+        </select>
+        </div>
         
         <div class="table-container">
             <table id="data-table">

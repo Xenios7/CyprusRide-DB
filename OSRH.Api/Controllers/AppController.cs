@@ -48,7 +48,7 @@ namespace OSRH.Api.Controllers
                 roles = roleList
             });
         }
-        
+
         // ==========================================
         // 2. ADMIN / REPORTS
         // ==========================================
@@ -157,6 +157,21 @@ namespace OSRH.Api.Controllers
             };
             await _db.ExecuteAsync("dbo.sp_AcceptOffer", parameters, CommandType.StoredProcedure);
             return Ok(new { message = "Η διαδρομή ξεκίνησε! Καλό ταξίδι." });
+        }
+
+        // Passenger credits.
+
+        [HttpGet("passenger/credits/{username}")]
+        public async Task<IActionResult> GetPassengerCredits(string username)
+        {
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetPassengerCredits",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
         }
 
         // ==========================================
@@ -281,6 +296,35 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
                 return Ok(new { message = "Rating submitted successfully!" });
             }
             catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
+        }
+
+
+        // Driver earnings feature.
+        [HttpGet("driver/earnings/{username}")]
+        public async Task<IActionResult> GetDriverEarnings(string username)
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetDriverEarnings",  
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        //  Driver GDPR delete account.
+        [HttpPost("driver/delete-account")]
+         async Task<IActionResult> DeleteDriverAccount([FromBody] JsonObject data)
+        {
+            string username = data["username"]?.ToString() ?? "";
+
+            await _db.ExecuteAsync(
+                "dbo.sp_GDPR_DeleteAccount",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "Ο λογαριασμός διαγράφηκε (GDPR Anonymized)." });
         }
 
         // ==========================================
