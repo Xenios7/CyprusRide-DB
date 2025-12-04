@@ -209,16 +209,21 @@ namespace OSRH.Api.Controllers
         // 3. PASSENGER FEATURES
         // ==========================================
 
+// 5. PASSENGER: Create New Request
         [HttpPost("passenger/request")]
         public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
             try
             {
+                // 1. Extract inputs safely (Fixes "Possible null reference" warnings)
                 string username = reqData["username"]?.ToString() ?? "";
+                
                 string serviceIdStr = reqData["serviceId"]?.ToString() ?? "1";
-                int serviceId = int.TryParse(serviceIdStr, out int sid) ? sid : 1;
+                int.TryParse(serviceIdStr, out int serviceId); // Safe parse
+
                 string notes = reqData["notes"]?.ToString() ?? "";
 
+                // Coordinates (Hardcoded for demo, or parse safely if sent from UI)
                 decimal pickupLat = 35.1700m; 
                 decimal pickupLon = 33.3600m;
                 decimal dropoffLat = 34.9200m; 
@@ -236,27 +241,43 @@ namespace OSRH.Api.Controllers
                     new SqlParameter("@Notes", notes)
                 };
 
+                // 2. Create the Request
                 DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
                 
                 if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
                 {
                     int newRequestId = Convert.ToInt32(dt.Rows[0]["RequestId"]);
 
-                    try {
-                        await _db.ExecuteAsync("dbo.sp_AutoGenerateOffersForRequest", 
-                            new[] { new SqlParameter("@RequestId", newRequestId) }, 
-                            CommandType.StoredProcedure);
-                    } catch (Exception botEx) { 
-                        Console.WriteLine($"Bot offer generation failed: {botEx.Message}");
+                    // =================================================================
+                    // 🤖 BOT TRIGGER (FIXED)
+                    // =================================================================
+                    try 
+                    {
+                        var botParams = new[] {
+                            new SqlParameter("@RequestID", newRequestId),
+                            new SqlParameter("@MaxDistance", 40.0m), // 40km Radius
+                            
+                            // 👇 THIS WAS MISSING! The SQL needs this output parameter.
+                            new SqlParameter("@Message", "") { Direction = ParameterDirection.Output, Size = 255 }
+                        };
+
+                        await _db.ExecuteAsync("dbo.sp_AutoGenerateOffersForRequest", botParams, CommandType.StoredProcedure);
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("Auto-Offer Error: " + ex.Message);
+                    }
+                    // =================================================================
 
                     return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
                 }
                 return BadRequest(new { message = "Failed to create request." });
             }
-            catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Server Error: " + ex.Message });
+            }
         }
-
         [HttpGet("passenger/offers/{requestId}")]
         public async Task<IActionResult> GetOffersForRequest(int requestId)
         {
