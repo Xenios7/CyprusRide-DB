@@ -52,17 +52,115 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 2. ADMIN / REPORTS
         // ==========================================
+        
+        // Report 1: Cost Analysis (with filtering)
         [HttpGet("reports/cost")]
-        public async Task<IActionResult> GetCostReport()
+        public async Task<IActionResult> GetCostReport(
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] string? timePeriod,
+            [FromQuery] int? serviceId,
+            [FromQuery] string? city,
+            [FromQuery] string? country,
+            [FromQuery] string? postalCode,
+            [FromQuery] decimal? centerLat,
+            [FromQuery] decimal? centerLon,
+            [FromQuery] decimal? radiusKm,
+            [FromQuery] string? groupBy)
         {
-            var dt = await _db.LoadDataAsync("dbo.sp_GetCostAnalysisReport", null, CommandType.StoredProcedure);
+            var parameters = new[] {
+                new SqlParameter("@StartDate", (object?)startDate ?? DBNull.Value),
+                new SqlParameter("@EndDate", (object?)endDate ?? DBNull.Value),
+                new SqlParameter("@TimePeriod", (object?)timePeriod ?? DBNull.Value),
+                new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
+                new SqlParameter("@City", (object?)city ?? DBNull.Value),
+                new SqlParameter("@Country", (object?)country ?? DBNull.Value),
+                new SqlParameter("@PostalCode", (object?)postalCode ?? DBNull.Value),
+                new SqlParameter("@CenterLat", (object?)centerLat ?? DBNull.Value),
+                new SqlParameter("@CenterLon", (object?)centerLon ?? DBNull.Value),
+                new SqlParameter("@RadiusKm", (object?)radiusKm ?? DBNull.Value),
+                new SqlParameter("@GroupBy", (object?)groupBy ?? DBNull.Value)
+            };
+            
+            var dt = await _db.LoadDataAsync("dbo.sp_GetCostAnalysisReport", parameters, CommandType.StoredProcedure);
             return Ok(ConvertDataTableToDict(dt));
         }
 
+        // Report 2: Driver Performance (with filtering)
         [HttpGet("reports/driver-performance")]
-        public async Task<IActionResult> GetDriverPerformance()
+        public async Task<IActionResult> GetDriverPerformance(
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] int? serviceId,
+            [FromQuery] string? city,
+            [FromQuery] int? minTrips,
+            [FromQuery] decimal? minRating,
+            [FromQuery] string? orderBy)
         {
-            var dt = await _db.LoadDataAsync("dbo.sp_GetDriverPerformance", null, CommandType.StoredProcedure);
+            var parameters = new[] {
+                new SqlParameter("@StartDate", (object?)startDate ?? DBNull.Value),
+                new SqlParameter("@EndDate", (object?)endDate ?? DBNull.Value),
+                new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
+                new SqlParameter("@City", (object?)city ?? DBNull.Value),
+                new SqlParameter("@MinTrips", (object?)minTrips ?? DBNull.Value),
+                new SqlParameter("@MinRating", (object?)minRating ?? DBNull.Value),
+                new SqlParameter("@OrderBy", orderBy ?? "TotalTrips")
+            };
+            
+            var dt = await _db.LoadDataAsync("dbo.sp_GetDriverPerformance", parameters, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // Report 3: Trip Statistics
+        [HttpGet("reports/trip-statistics")]
+        public async Task<IActionResult> GetTripStatistics(
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
+            [FromQuery] string? city,
+            [FromQuery] string? country,
+            [FromQuery] string? groupBy)
+        {
+            var parameters = new[] {
+                new SqlParameter("@StartDate", (object?)startDate ?? DBNull.Value),
+                new SqlParameter("@EndDate", (object?)endDate ?? DBNull.Value),
+                new SqlParameter("@City", (object?)city ?? DBNull.Value),
+                new SqlParameter("@Country", (object?)country ?? DBNull.Value),
+                new SqlParameter("@GroupBy", (object?)groupBy ?? DBNull.Value)
+            };
+            
+            var dt = await _db.LoadDataAsync("dbo.sp_GetTripStatistics", parameters, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // Report 4: Driver Earnings
+        [HttpGet("reports/driver-earnings")]
+        public async Task<IActionResult> GetDriverEarnings(
+            [FromQuery] string? driverUsername,
+            [FromQuery] int? year)
+        {
+            var parameters = new[] {
+                new SqlParameter("@DriverUsername", (object?)driverUsername ?? DBNull.Value),
+                new SqlParameter("@Year", (object?)year ?? DBNull.Value)
+            };
+            
+            var dt = await _db.LoadDataAsync("dbo.sp_GetDriverEarnings", parameters, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        // Report 5: Peak Activity Periods
+        [HttpGet("reports/peak-activity")]
+        public async Task<IActionResult> GetPeakActivity(
+            [FromQuery] int? serviceId,
+            [FromQuery] string? city,
+            [FromQuery] string? groupingLevel)
+        {
+            var parameters = new[] {
+                new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
+                new SqlParameter("@City", (object?)city ?? DBNull.Value),
+                new SqlParameter("@GroupingLevel", groupingLevel ?? "Hourly")
+            };
+            
+            var dt = await _db.LoadDataAsync("dbo.sp_GetPeakActivityPeriods", parameters, CommandType.StoredProcedure);
             return Ok(ConvertDataTableToDict(dt));
         }
 
@@ -110,104 +208,66 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 3. PASSENGER FEATURES
         // ==========================================
-        // [HttpPost("passenger/request")]
-        // public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
-        // {
-        //     // Hardcoded coords for demo
-        //     var parameters = new SqlParameter[] {
-        //         new SqlParameter("@Username", reqData["username"]!.ToString()),
-        //         new SqlParameter("@ServiceId", int.Parse(reqData["serviceId"]!.ToString())),
-        //         new SqlParameter("@EstimatedFare", 15.50m),
-        //         new SqlParameter("@PickupLat", 35.1700m),
-        //         new SqlParameter("@PickupLon", 33.3600m),
-        //         new SqlParameter("@DropoffLat", 34.9200m),
-        //         new SqlParameter("@DropoffLon", 33.6300m),
-        //         new SqlParameter("@Notes", reqData["notes"]?.ToString() ?? "")
-        //     };
 
-        //     DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
-            
-        //     if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
-        //     {
-        //         return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = Convert.ToInt32(dt.Rows[0]["RequestId"]) });
-        //     }
-        //     return BadRequest(new { message = "Failed to create request." });
-        // }
-
-// 5. PASSENGER: Create New Request
         [HttpPost("passenger/request")]
         public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
-            // ... (Your existing parameter extraction code) ...
-            string username = reqData["username"]!.ToString();
-            int serviceId = int.Parse(reqData["serviceId"]!.ToString());
-            string notes = reqData["notes"]?.ToString() ?? "";
-
-            // Hardcoded coords for demo (or from input)
-            decimal pickupLat = 35.1700m; decimal pickupLon = 33.3600m;
-            decimal dropoffLat = 34.9200m; decimal dropoffLon = 33.6300m;
-            decimal estimatedFare = 15.50m; 
-
-            var parameters = new SqlParameter[] {
-                new SqlParameter("@Username", username),
-                new SqlParameter("@ServiceId", serviceId),
-                new SqlParameter("@EstimatedFare", estimatedFare),
-                new SqlParameter("@PickupLat", pickupLat),
-                new SqlParameter("@PickupLon", pickupLon),
-                new SqlParameter("@DropoffLat", dropoffLat),
-                new SqlParameter("@DropoffLon", dropoffLon),
-                new SqlParameter("@Notes", notes)
-            };
-
-            // 1. Create the Request in Database
-            DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
-            
-            if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
+            try
             {
-                // Get the ID of the request we just created
-                int newRequestId = Convert.ToInt32(dt.Rows[0]["RequestId"]);
+                string username = reqData["username"]?.ToString() ?? "";
+                string serviceIdStr = reqData["serviceId"]?.ToString() ?? "1";
+                int serviceId = int.TryParse(serviceIdStr, out int sid) ? sid : 1;
+                string notes = reqData["notes"]?.ToString() ?? "";
 
-                // =================================================================
-                // 🤖 NEW CODE: TRIGGER AUTO-OFFERS IMMEDIATELY
-                // =================================================================
-                try 
+                decimal pickupLat = 35.1700m; 
+                decimal pickupLon = 33.3600m;
+                decimal dropoffLat = 34.9200m; 
+                decimal dropoffLon = 33.6300m;
+                decimal estimatedFare = 15.50m; 
+
+                var parameters = new SqlParameter[] {
+                    new SqlParameter("@Username", username),
+                    new SqlParameter("@ServiceId", serviceId),
+                    new SqlParameter("@EstimatedFare", estimatedFare),
+                    new SqlParameter("@PickupLat", pickupLat),
+                    new SqlParameter("@PickupLon", pickupLon),
+                    new SqlParameter("@DropoffLat", dropoffLat),
+                    new SqlParameter("@DropoffLon", dropoffLon),
+                    new SqlParameter("@Notes", notes)
+                };
+
+                DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
+                
+                if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
                 {
-                    var botParams = new[] {
-                        new SqlParameter("@RequestID", newRequestId),
-                        new SqlParameter("@MaxDistance", 15.0m), // Search within 15km
-                        new SqlParameter("@MaxOffers", 3),       // Create 3 offers
-                        // Output parameter handling requires specific setup, 
-                        // but for simplicity in ExecuteAsync we can often omit it if we don't read it back immediately
-                        // or define it simply:
-                        new SqlParameter("@Message", "") { Direction = ParameterDirection.Output, Size = 255 }
-                    };
+                    int newRequestId = Convert.ToInt32(dt.Rows[0]["RequestId"]);
 
-                    // This calls the procedure you created to fill the OFFER table
-                    await _db.ExecuteAsync("dbo.sp_AutoGenerateOffersForRequest", botParams, CommandType.StoredProcedure);
-                }
-                catch (Exception ex)
-                {
-                    // Log error but don't fail the request (so the user still sees "Request Sent")
-                    Console.WriteLine("Auto-Offer Error: " + ex.Message);
-                }
-                // =================================================================
+                    try {
+                        await _db.ExecuteAsync("dbo.sp_AutoGenerateOffersForRequest", 
+                            new[] { new SqlParameter("@RequestId", newRequestId) }, 
+                            CommandType.StoredProcedure);
+                    } catch (Exception botEx) { 
+                        Console.WriteLine($"Bot offer generation failed: {botEx.Message}");
+                    }
 
-                return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
+                    return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
+                }
+                return BadRequest(new { message = "Failed to create request." });
             }
-            return BadRequest(new { message = "Failed to create request." });
+            catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
         }
-        
+
+        [HttpGet("passenger/offers/{requestId}")]
+        public async Task<IActionResult> GetOffersForRequest(int requestId)
+        {
+            var dt = await _db.LoadDataAsync("dbo.sp_GetOffersForRequest", new[] { new SqlParameter("@RequestId", requestId) }, CommandType.StoredProcedure);
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
         [HttpGet("passenger/history/{username}")]
         public async Task<IActionResult> GetPassengerHistory(string username)
         {
             var dt = await _db.LoadDataAsync("dbo.sp_GetPassengerHistory", new[] { new SqlParameter("@Username", username) }, CommandType.StoredProcedure);
-            return Ok(ConvertDataTableToDict(dt));
-        }
-
-        [HttpGet("passenger/offers/{requestId}")]
-        public async Task<IActionResult> GetOffers(int requestId)
-        {
-            var dt = await _db.LoadDataAsync("dbo.sp_GetOffersForRequest", new[] { new SqlParameter("@RequestId", requestId) }, CommandType.StoredProcedure);
             return Ok(ConvertDataTableToDict(dt));
         }
 
@@ -276,34 +336,29 @@ namespace OSRH.Api.Controllers
             catch (Exception ex) { return StatusCode(500, new { message = "Server Error: " + ex.Message }); }
         }
 
-        // --- NEW DRIVER FEATURES (ADDED AND FIXED) ---
+        [HttpPost("driver/add-availability")]
+        public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
+        {
+            try
+            {
+                var parameters = new[] {
+                    new SqlParameter("@Username", data["username"]?.ToString()),
+                    new SqlParameter("@Weekday", int.Parse(data["weekday"]?.ToString() ?? "1")),
+                    new SqlParameter("@StartTime", TimeSpan.Parse(data["start"]?.ToString() ?? "09:00")),
+                    new SqlParameter("@EndTime", TimeSpan.Parse(data["end"]?.ToString() ?? "17:00")),
+                    new SqlParameter("@Notes", "Web App")
+                };
+                
+                var dt = await _db.LoadDataAsync("dbo.sp_AddDriverAvailability", parameters, CommandType.StoredProcedure);
+                
+                if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) 
+                    return Ok(new { message = "Shift added!" });
+                
+                return BadRequest(new { message = "Error adding shift." });
+            }
+            catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
+        }
 
-        // 14. DRIVER: Add Availability (WRITE)
-[HttpPost("driver/add-availability")]
-public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
-{
-    try
-    {
-        var parameters = new[] {
-            new SqlParameter("@Username", data["username"]?.ToString()),
-            new SqlParameter("@Weekday", int.Parse(data["weekday"]?.ToString() ?? "1")),
-            new SqlParameter("@StartTime", TimeSpan.Parse(data["start"]?.ToString() ?? "09:00")),
-            new SqlParameter("@EndTime", TimeSpan.Parse(data["end"]?.ToString() ?? "17:00")),
-            new SqlParameter("@Notes", "Web App")
-        };
-        
-        var dt = await _db.LoadDataAsync("dbo.sp_AddDriverAvailability", parameters, CommandType.StoredProcedure);
-        
-        if (dt.Rows.Count > 0 && (int)dt.Rows[0]["Success"] == 1) 
-            return Ok(new { message = "Shift added!" });
-        
-        return BadRequest(new { message = "Error adding shift." });
-    }
-    catch (Exception ex) { return StatusCode(500, new { message = ex.Message }); }
-}
-
-
-        // 15. DRIVER: Get Active Trip
         [HttpGet("driver/active-trip/{username}")]
         public async Task<IActionResult> GetActiveTrip(string username)
         {
@@ -313,7 +368,6 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // 16. DRIVER: Update Trip Status
         [HttpPost("driver/update-trip")]
         public async Task<IActionResult> UpdateTrip([FromBody] JsonObject data)
         {
@@ -327,7 +381,6 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
             return Ok(new { message = "Trip updated!" });
         }
 
-        // 17. FEEDBACK: Submit Rating
         [HttpPost("feedback/submit")]
         public async Task<IActionResult> SubmitFeedback([FromBody] JsonObject data)
         {
