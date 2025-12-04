@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("OSRH.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+44356cd8c614913128cd9ab014083a8acae47552")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d1e99f6b8fabf23c5e48179a1b24ce4ce71a5c92")]
 [assembly: System.Reflection.AssemblyProductAttribute("OSRH.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("OSRH.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
