@@ -1,6 +1,47 @@
 // Global map variable
 let map; 
 
+async function signUp() {
+    const payload = {
+        username: document.getElementById("su-username").value,
+        email: document.getElementById("su-email").value,
+        password: document.getElementById("su-password").value, // maybe hashed
+        first_name: document.getElementById("su-firstname").value,
+        last_name: document.getElementById("su-lastname").value,
+        dob: document.getElementById("su-dob").value,
+        sex: document.getElementById("su-sex").value,
+        ssn: document.getElementById("su-ssn").value,
+        street: document.getElementById("su-street").value,
+        postal_code: document.getElementById("su-postal").value,
+        role: document.getElementById("su-role").value
+    };
+
+    const res = await fetch("/api/app/account/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+        alert("❌ " + data.message);
+    } else {
+        alert("✔ " + data.message);
+        hideSignupForm();
+    }
+}
+
+function showSignupForm() {
+    document.getElementById("login-section").classList.add("hidden");
+    document.getElementById("signup-section").classList.remove("hidden");
+}
+
+function hideSignupForm() {
+    document.getElementById("signup-section").classList.add("hidden");
+    document.getElementById("login-section").classList.remove("hidden");
+}
+
 // =========================================================
 // 1. LOGIN & AUTHENTICATION
 // =========================================================
@@ -28,7 +69,12 @@ async function login() {
 
             setupDashboard(user.roles || []);
         } else {
-            document.getElementById('login-msg').innerText = "Λάθος στοιχεία.";
+            if (!response.ok) {
+                const data = await response.json();
+                document.getElementById('login-msg').innerText = data.message || "Λάθος στοιχεία.";
+                return;
+            }
+
         }
     } catch (error) {
         console.error(error);
@@ -851,19 +897,34 @@ async function loadDriverEarnings() {
 
     try {
         const response = await fetch(`/api/app/driver/earnings/${currentUser}`);
-        if (!response.ok) throw new Error("Server error");
-
         const data = await response.json();
 
-        const amount = data.length > 0 ? data[0].total_earnings : 0;
+        console.log("RAW EARNINGS RESPONSE:", data);
 
-        const tableBody = document.querySelector("#data-table tbody");
+        let amount = 0;
+
+        if (Array.isArray(data) && data.length > 0) {
+            const raw = data[0].TotalEarnings;
+
+            console.log("RAW TotalEarnings:", raw);
+
+            if (raw === null || raw === undefined || raw === "") {
+                amount = 0;
+            } else {
+                amount = Number(raw);
+            }
+
+            console.log("PARSED amount:", amount);
+        }
+
         const tableHead = document.querySelector("#data-table thead");
+        const tableBody = document.querySelector("#data-table tbody");
+
         tableHead.innerHTML = "<tr><th>Σύνολο Εσόδων</th></tr>";
-        tableBody.innerHTML = `<tr><td>€${Number(amount).toFixed(2)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td>€${amount.toFixed(2)}</td></tr>`;
     }
     catch (error) {
-        console.error(error);
+        console.error("ERROR:", error);
         alert("Σφάλμα φόρτωσης εσόδων.");
     }
 }
@@ -1495,5 +1556,18 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Restoring active request:", activeRequestId);
             loadOffers(activeRequestId);
         }
+
+            fetch(`/api/app/check-user/${currentUser}`)
+        .then(r => r.json())
+        .then(u => {
+            if (u.gdpr_deleted === 1 || u.is_active === 0) {
+                alert("Ο λογαριασμός σας έχει διαγραφεί λόγω GDPR.");
+                logout();
+            }
+        });
+
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+        
     }
 });

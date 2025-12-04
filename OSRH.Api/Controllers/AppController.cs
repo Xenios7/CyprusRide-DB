@@ -20,17 +20,62 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 1. AUTHENTICATION
         // ==========================================
+        [HttpPost("account/signup")]
+        public async Task<IActionResult> SignUp([FromBody] JsonObject data)
+        {
+            try
+            {
+                var outputMsg = new SqlParameter("@Message", SqlDbType.NVarChar, 255)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                var parameters = new[]
+                {
+                    new SqlParameter("@Username", data["username"]?.ToString()),
+                    new SqlParameter("@Email", data["email"]?.ToString()),
+                    new SqlParameter("@PasswordHash", data["password"]?.ToString()),
+                    new SqlParameter("@FirstName", data["first_name"]?.ToString()),
+                    new SqlParameter("@LastName", data["last_name"]?.ToString()),
+                    new SqlParameter("@DateOfBirth", DateTime.Parse(data["dob"]?.ToString() ?? "2000-01-01")),
+                    new SqlParameter("@Sex", data["sex"]?.ToString() ?? ""),
+                    new SqlParameter("@SSN", data["ssn"]?.ToString() ?? ""),
+                    new SqlParameter("@Street", data["street"]?.ToString() ?? ""),
+                    new SqlParameter("@PostalCode", data["postal_code"]?.ToString() ?? ""),
+                    new SqlParameter("@RoleName", data["role"]?.ToString() ?? "Passenger"),
+                    outputMsg
+                };
+
+                await _db.ExecuteAsync("dbo.sp_SignUpUser", parameters, CommandType.StoredProcedure);
+
+                if (outputMsg.Value?.ToString() != "OK")
+                    return BadRequest(new { message = outputMsg.Value?.ToString() });
+
+                return Ok(new { message = "Ο λογαριασμός δημιουργήθηκε επιτυχώς." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] JsonObject loginData)
         {
             string username = loginData["username"]?.ToString() ?? "";
             string password = loginData["password"]?.ToString() ?? "";
 
-            var dt = await _db.LoadDataAsync("dbo.sp_LoginUser", 
-                new[] { new SqlParameter("@Username", username), new SqlParameter("@Password", password) }, 
-                CommandType.StoredProcedure);
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_LoginUser",
+                new[] {
+                    new SqlParameter("@Username", username),
+                    new SqlParameter("@Password", password)
+                },
+                CommandType.StoredProcedure
+            );
 
-            if (dt.Rows.Count == 0) return StatusCode(500, new { message = "Server Error: No response." });
+            if (dt.Rows.Count == 0)
+                return StatusCode(500, new { message = "Server Error: No response." });
 
             DataRow row = dt.Rows[0];
             int success = Convert.ToInt32(row["Success"]);
@@ -38,15 +83,44 @@ namespace OSRH.Api.Controllers
 
             if (success == 0) return Unauthorized(new { message = message });
 
-            string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"]?.ToString() ?? "" : "";
-            List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            string rolesStr = row["Roles"]?.ToString() ?? "";
+            List<string> roleList = rolesStr.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
 
-            return Ok(new 
-            { 
-                username = row["Username"]?.ToString() ?? "", 
-                name = row["Name"]?.ToString() ?? "",   
+            return Ok(new
+            {
+                username = row["Username"]?.ToString() ?? username,
+                name = row["Name"]?.ToString() ?? "",
                 roles = roleList
             });
+        }
+
+
+        [HttpGet("check-user/{username}")]
+        public async Task<IActionResult> CheckUser(string username)
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_CheckUserStatus",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            if (dt.Rows.Count == 0) return NotFound(new { message = "User not found" });
+
+            var row = dt.Rows[0];
+
+            int gdpr = Convert.ToInt32(row["gdpr_deleted"]);
+            int active = Convert.ToInt32(row["is_active"]);
+
+            if (gdpr == 1 || active == 0)
+            {
+                return Ok(new
+                {
+                    gdpr_deleted = 1,
+                    is_active = 0
+                });
+            }
+
+            return Ok(ConvertDataTableToDict(dt).First());
         }
 
         // ==========================================
@@ -66,7 +140,6 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        [HttpGet("admin/service-types")]
 [HttpGet("admin/service-types")]
 public async Task<IActionResult> GetOperatorServiceTypes()
 {
@@ -382,9 +455,21 @@ public async Task<IActionResult> AddAvailability([FromBody] JsonObject data)
         [HttpGet("driver/earnings/{username}")]
         public async Task<IActionResult> GetDriverEarnings(string username)
         {
+
+            var dtUser = await _db.LoadDataAsync(
+                "SELECT d.driver_id FROM DRIVER d JOIN [USER] u ON d.user_id = u.user_id WHERE u.username = @U",
+                new[] { new SqlParameter("@U", username) },
+                CommandType.Text
+            );
+
+            if (dtUser.Rows.Count == 0)
+                return BadRequest(new { message = "Driver not found" });
+
+            int driverId = Convert.ToInt32(dtUser.Rows[0]["driver_id"]);
+
             var dt = await _db.LoadDataAsync(
-                "dbo.sp_GetDriverEarnings",  
-                new[] { new SqlParameter("@Username", username) },
+                "dbo.sp_GetDriverEarnings",
+                new[] { new SqlParameter("@DriverID", driverId) },
                 CommandType.StoredProcedure
             );
 

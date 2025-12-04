@@ -48,6 +48,37 @@
         <input type="password" id="password" placeholder="Κωδικός">
         <button onclick="login()" style="width:100%; margin-top:10px;">Είσοδος</button>
         <p id="login-msg" style="color:red; margin-top:10px; font-size:0.9em;"></p>
+        <p style="margin-top:15px;"><a href="#" onclick="showSignupForm()">Δημιουργία Λογαριασμού</a></p>
+    </div>
+
+    <!-- SIGN-UP -->
+    <div id="signup-section" class="hidden card" style="max-width:350px; margin:50px auto; padding:40px; border:1px solid #eee;">
+        <h2>Εγγραφή Χρήστη</h2>
+
+        <input type="text" id="su-username" placeholder="Όνομα χρήστη">
+        <input type="email" id="su-email" placeholder="Email">
+        <input type="password" id="su-password" placeholder="Κωδικός">
+        <input type="text" id="su-firstname" placeholder="Όνομα">
+        <input type="text" id="su-lastname" placeholder="Επίθετο">
+        <input type="date" id="su-dob" placeholder="Ημ. Γέννησης">
+
+        <select id="su-sex">
+            <option value="M">Άνδρας</option>
+            <option value="F">Γυναίκα</option>
+            <option value="O">Άλλο</option>
+        </select>
+
+        <input type="text" id="su-ssn" placeholder="SSN">
+        <input type="text" id="su-street" placeholder="Οδός">
+        <input type="text" id="su-postal" placeholder="Ταχυδρομικός Κώδικας">
+
+        <select id="su-role">
+            <option value="Passenger">Επιβάτης</option>
+            <option value="Driver">Οδηγός</option>
+        </select>
+
+        <button onclick="signUp()" style="margin-top:15px; width:100%; background:#28a745;">Εγγραφή</button>
+        <button onclick="hideSignupForm()" style="margin-top:10px; width:100%; background:#6c757d;">Άκυρο</button>
     </div>
 
     <!-- DASHBOARD -->
