@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 namespace OSRH.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")]
+    [Route("api/app")]  // ✅ FIXED: Changed from api/[controller] to api/app
     public class AppController : ControllerBase
     {
         private readonly SqlDataAccess _db;
@@ -34,7 +34,7 @@ namespace OSRH.Api.Controllers
 
             DataRow row = dt.Rows[0];
             int success = Convert.ToInt32(row["Success"]);
-            string message = row["Message"].ToString();
+            string message = row["Message"].ToString() ?? "";
 
             if (success == 0) return Unauthorized(new { message = message });
 
@@ -52,8 +52,7 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 2. ADMIN / REPORTS
         // ==========================================
-        
-        // Report 1: Cost Analysis (with filtering)
+
         [HttpGet("reports/cost")]
         public async Task<IActionResult> GetCostReport(
             [FromQuery] DateTime? startDate,
@@ -68,25 +67,31 @@ namespace OSRH.Api.Controllers
             [FromQuery] decimal? radiusKm,
             [FromQuery] string? groupBy)
         {
-            var parameters = new[] {
-                new SqlParameter("@StartDate", (object?)startDate ?? DBNull.Value),
-                new SqlParameter("@EndDate", (object?)endDate ?? DBNull.Value),
-                new SqlParameter("@TimePeriod", (object?)timePeriod ?? DBNull.Value),
-                new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
-                new SqlParameter("@City", (object?)city ?? DBNull.Value),
-                new SqlParameter("@Country", (object?)country ?? DBNull.Value),
-                new SqlParameter("@PostalCode", (object?)postalCode ?? DBNull.Value),
-                new SqlParameter("@CenterLat", (object?)centerLat ?? DBNull.Value),
-                new SqlParameter("@CenterLon", (object?)centerLon ?? DBNull.Value),
-                new SqlParameter("@RadiusKm", (object?)radiusKm ?? DBNull.Value),
-                new SqlParameter("@GroupBy", (object?)groupBy ?? DBNull.Value)
-            };
-            
-            var dt = await _db.LoadDataAsync("dbo.sp_GetCostAnalysisReport", parameters, CommandType.StoredProcedure);
-            return Ok(ConvertDataTableToDict(dt));
+            try
+            {
+                var parameters = new[] {
+                    new SqlParameter("@StartDate", (object?)startDate ?? DBNull.Value),
+                    new SqlParameter("@EndDate", (object?)endDate ?? DBNull.Value),
+                    new SqlParameter("@TimePeriod", (object?)timePeriod ?? DBNull.Value),
+                    new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
+                    new SqlParameter("@City", (object?)city ?? DBNull.Value),
+                    new SqlParameter("@Country", (object?)country ?? DBNull.Value),
+                    new SqlParameter("@PostalCode", (object?)postalCode ?? DBNull.Value),
+                    new SqlParameter("@CenterLat", (object?)centerLat ?? DBNull.Value),
+                    new SqlParameter("@CenterLon", (object?)centerLon ?? DBNull.Value),
+                    new SqlParameter("@RadiusKm", (object?)radiusKm ?? DBNull.Value),
+                    new SqlParameter("@GroupBy", (object?)groupBy ?? DBNull.Value)
+                };
+                
+                var dt = await _db.LoadDataAsync("dbo.sp_GetCostAnalysisReport", parameters, CommandType.StoredProcedure);
+                return Ok(ConvertDataTableToDict(dt));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Error fetching cost report", error = ex.Message });
+            }
         }
 
-        // Report 2: Driver Performance (with filtering)
         [HttpGet("reports/driver-performance")]
         public async Task<IActionResult> GetDriverPerformance(
             [FromQuery] DateTime? startDate,
@@ -111,7 +116,6 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // Report 3: Trip Statistics
         [HttpGet("reports/trip-statistics")]
         public async Task<IActionResult> GetTripStatistics(
             [FromQuery] DateTime? startDate,
@@ -132,7 +136,6 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // Report 4: Driver Earnings
         [HttpGet("reports/driver-earnings")]
         public async Task<IActionResult> GetDriverEarnings(
             [FromQuery] string? driverUsername,
@@ -147,7 +150,6 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // Report 5: Peak Activity Periods
         [HttpGet("reports/peak-activity")]
         public async Task<IActionResult> GetPeakActivity(
             [FromQuery] int? serviceId,
@@ -185,9 +187,6 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        // ==========================================
-        // ADMIN: VEHICLE STANDARDS
-        // ==========================================
         [HttpGet("admin/vehicle-standards")]
         public async Task<IActionResult> GetVehicleStandards()
         {
@@ -209,21 +208,18 @@ namespace OSRH.Api.Controllers
         // 3. PASSENGER FEATURES
         // ==========================================
 
-// 5. PASSENGER: Create New Request
         [HttpPost("passenger/request")]
         public async Task<IActionResult> CreateRequest([FromBody] JsonObject reqData)
         {
             try
             {
-                // 1. Extract inputs safely (Fixes "Possible null reference" warnings)
                 string username = reqData["username"]?.ToString() ?? "";
                 
                 string serviceIdStr = reqData["serviceId"]?.ToString() ?? "1";
-                int.TryParse(serviceIdStr, out int serviceId); // Safe parse
+                int.TryParse(serviceIdStr, out int serviceId);
 
                 string notes = reqData["notes"]?.ToString() ?? "";
 
-                // Coordinates (Hardcoded for demo, or parse safely if sent from UI)
                 decimal pickupLat = 35.1700m; 
                 decimal pickupLon = 33.3600m;
                 decimal dropoffLat = 34.9200m; 
@@ -241,23 +237,17 @@ namespace OSRH.Api.Controllers
                     new SqlParameter("@Notes", notes)
                 };
 
-                // 2. Create the Request
                 DataTable dt = await _db.LoadDataAsync("dbo.sp_CreateTransportRequest", parameters, CommandType.StoredProcedure);
                 
                 if (dt.Rows.Count > 0 && dt.Columns.Contains("RequestId"))
                 {
                     int newRequestId = Convert.ToInt32(dt.Rows[0]["RequestId"]);
 
-                    // =================================================================
-                    // 🤖 BOT TRIGGER (FIXED)
-                    // =================================================================
                     try 
                     {
                         var botParams = new[] {
                             new SqlParameter("@RequestID", newRequestId),
-                            new SqlParameter("@MaxDistance", 40.0m), // 40km Radius
-                            
-                            // 👇 THIS WAS MISSING! The SQL needs this output parameter.
+                            new SqlParameter("@MaxDistance", 40.0m),
                             new SqlParameter("@Message", "") { Direction = ParameterDirection.Output, Size = 255 }
                         };
 
@@ -267,7 +257,6 @@ namespace OSRH.Api.Controllers
                     {
                         Console.WriteLine("Auto-Offer Error: " + ex.Message);
                     }
-                    // =================================================================
 
                     return Ok(new { message = "Το αίτημα καταχωρήθηκε επιτυχώς!", requestId = newRequestId });
                 }
@@ -278,6 +267,7 @@ namespace OSRH.Api.Controllers
                 return StatusCode(500, new { message = "Server Error: " + ex.Message });
             }
         }
+
         [HttpGet("passenger/offers/{requestId}")]
         public async Task<IActionResult> GetOffersForRequest(int requestId)
         {
