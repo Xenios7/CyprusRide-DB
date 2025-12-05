@@ -190,16 +190,20 @@ public async Task<IActionResult> GetOperatorServiceTypes()
         [HttpPost("admin/gdpr-approve")]
         public async Task<IActionResult> ApproveGdprRequest([FromBody] JsonObject data)
         {
-            int logId = int.Parse(data["logId"]!.ToString());
+            string username = data["username"]?.ToString() ?? "";
+
+            if (string.IsNullOrWhiteSpace(username))
+                return BadRequest(new { message = "Username is required." });
 
             await _db.ExecuteAsync(
-                "dbo.sp_ApproveGdprRequest",
-                new[] { new SqlParameter("@LogId", logId) },
+                "dbo.sp_GDPR_DeleteAccount",
+                new[] { new SqlParameter("@Username", username) },
                 CommandType.StoredProcedure
             );
 
-            return Ok(new { message = "GDPR request approved." });
+            return Ok(new { message = "GDPR account deleted (anonymized) successfully." });
         }
+
 
         //  Reject GDPR requests.
         [HttpPost("admin/gdpr-reject")]
@@ -257,6 +261,61 @@ public async Task<IActionResult> GetOperatorServiceTypes()
             );
 
             return Ok(new { message = "Role assigned successfully" });
+        }
+
+        // ==========================================
+// ADMIN: PAYMENTS & COMMISSIONS
+// ==========================================
+[HttpGet("admin/payments")]
+public async Task<IActionResult> GetPayments()
+{
+    try
+    {
+        var dt = await _db.LoadDataAsync(
+            "dbo.sp_GetDriverPayments",
+            null,
+            CommandType.StoredProcedure
+        );
+
+        return Ok(ConvertDataTableToDict(dt));
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, new { message = ex.Message });
+    }
+}
+
+
+
+        // ==========================================
+        // ADMIN: Update Payment Status
+        // ==========================================
+        [HttpPost("admin/payment/update")]
+        public async Task<IActionResult> UpdatePaymentStatus([FromBody] JsonObject data)
+        {
+            try
+            {
+                int paymentId = int.Parse(data["paymentId"]!.ToString());
+                string newStatus = data["newStatus"]!.ToString();
+
+                var parameters = new[]
+                {
+                    new SqlParameter("@PaymentId", paymentId),
+                    new SqlParameter("@NewStatus", newStatus)
+                };
+
+                await _db.ExecuteAsync(
+                    "dbo.sp_UpdatePaymentStatus",
+                    parameters,
+                    CommandType.StoredProcedure
+                );
+
+                return Ok(new { message = "Payment status updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
         }
 
         // ==========================================

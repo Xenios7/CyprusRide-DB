@@ -98,7 +98,6 @@ function logout() {
 // 2. ADMIN & REPORTS
 // =========================================================
 
-// --- WORKING REPORTS (From Doc 6 - Tousis's explicit functions) ---
 async function loadCostReport() {
     document.getElementById("table-title").innerText = "Ανάλυση Κόστους ανά Υπηρεσία";
     resetView();
@@ -131,7 +130,6 @@ async function loadDriverPerformance() {
     }
 }
 
-// --- NEW ADMIN FEATURES (From Doc 6 - Tousis's additions) ---
 function loadAllUsers() {
     document.getElementById('table-title').innerText = "Όλοι οι Χρήστες";
     resetView();
@@ -1036,6 +1034,7 @@ async function loadOffers(requestId) {
 
             const response = await fetch(`/api/app/passenger/offers/${requestId}`);
             const offers = await response.json();
+            console.log("OFFERS LOADED:", offers);
             
             if(offers.length === 0) { 
                 if(!container.innerHTML.includes("Αναζήτηση")) {
@@ -1051,6 +1050,7 @@ async function loadOffers(requestId) {
                 map = null; 
             }
 
+            document.getElementById("map").style.display = "block";
             map = L.map('map');
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                 attribution: '© OpenStreetMap'
@@ -1109,7 +1109,7 @@ async function loadOffers(requestId) {
 
             const bounds = L.latLngBounds([pickup, dropoff]);
             map.fitBounds(bounds, {padding: [50, 50]});
-            setTimeout(() => map.invalidateSize(), 200);
+            setTimeout(() => map.invalidateSize(), 300);
 
         } catch (error) {
             console.error("Error loading offers:", error);
@@ -1364,13 +1364,16 @@ async function fetchData(endpoint) {
         const isDriverView = endpoint.includes('driver/open-requests');
         const isOperatorDocView = endpoint.includes('operator/pending-documents');
         const isGdprAdminView = endpoint.includes('admin/gdpr-requests');
-            
+        const isPaymentView = endpoint.includes('admin/payments');
 
         const ignored = JSON.parse(sessionStorage.getItem('ignoredRequests') || "[]");
         let filteredData = data;
 
        if (isGdprAdminView && Array.isArray(filteredData)) {
-            filteredData = filteredData.filter(row => row.action_type === "REQUEST");
+            filteredData = filteredData.filter(row => 
+                row.action_type === "REQUEST" && 
+                (!row.comments || !row.comments.includes("approved"))
+            );
         }
 
         if (filteredData.length > 0) {
@@ -1448,7 +1451,7 @@ async function fetchData(endpoint) {
                 const approveBtn = document.createElement("button");
                 approveBtn.innerText = "✔ Αποδοχή";
                 approveBtn.style.backgroundColor = "#28a745";
-                approveBtn.onclick = () => approveGdprRequest(row.gdpr_log_id);
+                approveBtn.onclick = () => approveGdprRequest(row.username);
 
                 const rejectBtn = document.createElement("button");
                 rejectBtn.innerText = "✖ Απόρριψη";
@@ -1457,6 +1460,21 @@ async function fetchData(endpoint) {
 
                 td.appendChild(approveBtn);
                 td.appendChild(rejectBtn);
+                tr.appendChild(td);
+            }
+
+            if (isPaymentView) {
+                const td = document.createElement("td");
+                td.style.display = "flex";
+                td.style.gap = "8px";
+
+                const btn = document.createElement("button");
+                btn.innerText = "✔ Ολοκλήρωση";
+                btn.style.backgroundColor = "#28a745";
+                btn.style.color = "white";
+                btn.onclick = () => completePayment(row.payment_id);
+
+                td.appendChild(btn);
                 tr.appendChild(td);
             }
 
@@ -1470,6 +1488,33 @@ async function fetchData(endpoint) {
         tableBody.innerHTML = "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
     } finally {
         loading.classList.add('hidden');
+    }
+}
+
+async function completePayment(paymentId) {
+    if (!confirm("Να ολοκληρωθεί η πληρωμή;")) return;
+
+    try {
+        const res = await fetch('/api/app/admin/payment/update', {
+            method: 'POST',
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                paymentId: paymentId,
+                newStatus: "Completed"
+            })
+        });
+
+        if (!res.ok) {
+            alert("Σφάλμα ενημέρωσης πληρωμής.");
+            return;
+        }
+
+        alert("Η πληρωμή ολοκληρώθηκε!");
+        loadPayments();
+    }
+    catch (err) {
+        console.error(err);
+        alert("Σφάλμα σύνδεσης με τον server.");
     }
 }
 
@@ -1508,18 +1553,23 @@ function populateTable(data) {
     });
 }
 
-async function approveGdprRequest(logId) {
+async function approveGdprRequest(username) {
     if (!confirm("Επιβεβαίωση αποδοχής GDPR αιτήματος;")) return;
 
-    await fetch('/api/app/admin/gdpr-approve', {
+    const response = await fetch('/api/app/admin/gdpr-approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ logId })
+        body: JSON.stringify({ username })
     });
 
-    alert("Το αίτημα εγκρίθηκε.");
-    loadGDPRRequests();
+    if (response.ok) {
+        alert("Το αίτημα εγκρίθηκε.");
+        loadGDPRRequests();
+    } else {
+        alert("Σφάλμα κατά την αποδοχή.");
+    }
 }
+
 
 async function rejectGdprRequest(logId) {
     if (!confirm("Επιβεβαίωση απόρριψης GDPR αιτήματος;")) return;
