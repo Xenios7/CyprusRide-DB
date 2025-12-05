@@ -20,17 +20,62 @@ namespace OSRH.Api.Controllers
         // ==========================================
         // 1. AUTHENTICATION
         // ==========================================
+        [HttpPost("account/signup")]
+        public async Task<IActionResult> SignUp([FromBody] JsonObject data)
+        {
+            try
+            {
+                var outputMsg = new SqlParameter("@Message", SqlDbType.NVarChar, 255)
+                {
+                    Direction = ParameterDirection.Output
+                };
+
+                var parameters = new[]
+                {
+                    new SqlParameter("@Username", data["username"]?.ToString()),
+                    new SqlParameter("@Email", data["email"]?.ToString()),
+                    new SqlParameter("@PasswordHash", data["password"]?.ToString()),
+                    new SqlParameter("@FirstName", data["first_name"]?.ToString()),
+                    new SqlParameter("@LastName", data["last_name"]?.ToString()),
+                    new SqlParameter("@DateOfBirth", DateTime.Parse(data["dob"]?.ToString() ?? "2000-01-01")),
+                    new SqlParameter("@Sex", data["sex"]?.ToString() ?? ""),
+                    new SqlParameter("@SSN", data["ssn"]?.ToString() ?? ""),
+                    new SqlParameter("@Street", data["street"]?.ToString() ?? ""),
+                    new SqlParameter("@PostalCode", data["postal_code"]?.ToString() ?? ""),
+                    new SqlParameter("@RoleName", data["role"]?.ToString() ?? "Passenger"),
+                    outputMsg
+                };
+
+                await _db.ExecuteAsync("dbo.sp_SignUpUser", parameters, CommandType.StoredProcedure);
+
+                if (outputMsg.Value?.ToString() != "OK")
+                    return BadRequest(new { message = outputMsg.Value?.ToString() });
+
+                return Ok(new { message = "Ο λογαριασμός δημιουργήθηκε επιτυχώς." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] JsonObject loginData)
         {
             string username = loginData["username"]?.ToString() ?? "";
             string password = loginData["password"]?.ToString() ?? "";
 
-            var dt = await _db.LoadDataAsync("dbo.sp_LoginUser", 
-                new[] { new SqlParameter("@Username", username), new SqlParameter("@Password", password) }, 
-                CommandType.StoredProcedure);
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_LoginUser",
+                new[] {
+                    new SqlParameter("@Username", username),
+                    new SqlParameter("@Password", password)
+                },
+                CommandType.StoredProcedure
+            );
 
-            if (dt.Rows.Count == 0) return StatusCode(500, new { message = "Server Error: No response." });
+            if (dt.Rows.Count == 0)
+                return StatusCode(500, new { message = "Server Error: No response." });
 
             DataRow row = dt.Rows[0];
             int success = Convert.ToInt32(row["Success"]);
@@ -38,17 +83,46 @@ namespace OSRH.Api.Controllers
 
             if (success == 0) return Unauthorized(new { message = message });
 
-            string rolesStr = row["Roles"] != DBNull.Value ? row["Roles"]?.ToString() ?? "" : "";
-            List<string> roleList = rolesStr.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            string rolesStr = row["Roles"]?.ToString() ?? "";
+            List<string> roleList = rolesStr.Split(',', StringSplitOptions.RemoveEmptyEntries).ToList();
 
-            return Ok(new 
-            { 
-                username = row["Username"]?.ToString() ?? "", 
-                name = row["Name"]?.ToString() ?? "",   
+            return Ok(new
+            {
+                username = row["Username"]?.ToString() ?? username,
+                name = row["Name"]?.ToString() ?? "",
                 roles = roleList
             });
         }
-        
+
+
+        [HttpGet("check-user/{username}")]
+        public async Task<IActionResult> CheckUser(string username)
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_CheckUserStatus",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            if (dt.Rows.Count == 0) return NotFound(new { message = "User not found" });
+
+            var row = dt.Rows[0];
+
+            int gdpr = Convert.ToInt32(row["gdpr_deleted"]);
+            int active = Convert.ToInt32(row["is_active"]);
+
+            if (gdpr == 1 || active == 0)
+            {
+                return Ok(new
+                {
+                    gdpr_deleted = 1,
+                    is_active = 0
+                });
+            }
+
+            return Ok(ConvertDataTableToDict(dt).First());
+        }
+
         // ==========================================
         // 2. ADMIN / REPORTS
         // ==========================================
@@ -166,26 +240,18 @@ namespace OSRH.Api.Controllers
             return Ok(ConvertDataTableToDict(dt));
         }
 
-        [HttpGet("admin/service-types")]
-        public async Task<IActionResult> GetServiceTypes()
-        {
-            var message = new SqlParameter("@Message", SqlDbType.NVarChar, 255)
-            {
-                Direction = ParameterDirection.Output
-            };
+[HttpGet("admin/service-types")]
+public async Task<IActionResult> GetOperatorServiceTypes()
+{
+    var dt = await _db.LoadDataAsync(
+        "dbo.sp_GetServiceTypes",
+        null,
+        CommandType.StoredProcedure
+    );
 
-            var dt = await _db.LoadDataAsync(
-                "dbo.sp_GetServiceTypes",
-                new[] 
-                { 
-                    new SqlParameter("@IncludeInactive", 0), 
-                    message 
-                },
-                CommandType.StoredProcedure
-            );
+    return Ok(ConvertDataTableToDict(dt));
+}
 
-            return Ok(ConvertDataTableToDict(dt));
-        }
 
         [HttpGet("admin/vehicle-standards")]
         public async Task<IActionResult> GetVehicleStandards()
@@ -203,7 +269,93 @@ namespace OSRH.Api.Controllers
 
             return Ok(ConvertDataTableToDict(dt));
         }
+
+        // Get GDPR requests.
+        [HttpGet("admin/gdpr-requests")]
+        public async Task<IActionResult> GetGdprRequests()
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetGdprRequests",
+                null,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
  
+        //  Approve GDPR requests.
+        [HttpPost("admin/gdpr-approve")]
+        public async Task<IActionResult> ApproveGdprRequest([FromBody] JsonObject data)
+        {
+            int logId = int.Parse(data["logId"]!.ToString());
+
+            await _db.ExecuteAsync(
+                "dbo.sp_ApproveGdprRequest",
+                new[] { new SqlParameter("@LogId", logId) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "GDPR request approved." });
+        }
+
+        //  Reject GDPR requests.
+        [HttpPost("admin/gdpr-reject")]
+        public async Task<IActionResult> RejectGdprRequest([FromBody] JsonObject data)
+        {
+            int logId = int.Parse(data["logId"]!.ToString());
+
+            await _db.ExecuteAsync(
+                "dbo.sp_RejectGdprRequest",
+                new[] { new SqlParameter("@LogId", logId) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "GDPR request rejected." });
+        }
+
+        [HttpGet("admin/users-with-roles")]
+        public async Task<IActionResult> GetUsersWithRoles()
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_AdminGetUsersWithRoles",
+                null,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpGet("admin/roles")]
+        public async Task<IActionResult> GetAllRoles()
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_AdminGetAllRoles",
+                null,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("admin/assign-role")]
+        public async Task<IActionResult> AssignRole([FromBody] JsonObject data)
+        {
+            int userId = int.Parse(data["userId"]!.ToString());
+            int roleId = int.Parse(data["roleId"]!.ToString());
+
+            await _db.ExecuteAsync(
+                "dbo.sp_AdminAssignRole",
+                new[]
+                {
+                    new SqlParameter("@UserId", userId),
+                    new SqlParameter("@RoleId", roleId)
+                },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "Role assigned successfully" });
+        }
+
         // ==========================================
         // 3. PASSENGER FEATURES
         // ==========================================
@@ -291,6 +443,21 @@ namespace OSRH.Api.Controllers
             };
             await _db.ExecuteAsync("dbo.sp_AcceptOffer", parameters, CommandType.StoredProcedure);
             return Ok(new { message = "Η διαδρομή ξεκίνησε! Καλό ταξίδι." });
+        }
+
+        // Passenger credits.
+
+        [HttpGet("passenger/credits/{username}")]
+        public async Task<IActionResult> GetPassengerCredits(string username)
+        {
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetPassengerCredits",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
         }
 
         // ==========================================
@@ -410,6 +577,47 @@ namespace OSRH.Api.Controllers
             catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
         }
 
+
+        // Driver earnings feature.
+        [HttpGet("driver/earnings/{username}")]
+        public async Task<IActionResult> GetDriverEarnings(string username)
+        {
+
+            var dtUser = await _db.LoadDataAsync(
+                "SELECT d.driver_id FROM DRIVER d JOIN [USER] u ON d.user_id = u.user_id WHERE u.username = @U",
+                new[] { new SqlParameter("@U", username) },
+                CommandType.Text
+            );
+
+            if (dtUser.Rows.Count == 0)
+                return BadRequest(new { message = "Driver not found" });
+
+            int driverId = Convert.ToInt32(dtUser.Rows[0]["driver_id"]);
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetDriverEarnings",
+                new[] { new SqlParameter("@DriverID", driverId) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        //  Driver GDPR delete account request.
+       [HttpPost("driver/gdpr-request")]
+        public async Task<IActionResult> CreateGdprRequest([FromBody] JsonObject data)
+        {
+            string username = data["username"]?.ToString() ?? "";
+
+            await _db.ExecuteAsync(
+                "dbo.sp_GDPR_CreateRequest",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+        return Ok(new { message = "Το αίτημα GDPR στάλθηκε για έγκριση." });
+        }
+
         // ==========================================
         // 5. OPERATOR FEATURES
         // ==========================================
@@ -434,6 +642,146 @@ namespace OSRH.Api.Controllers
             }
             catch (Exception ex) { return StatusCode(500, new { message = "Error: " + ex.Message }); }
         }
+
+        [HttpGet("operator/service-types")]
+        public async Task<IActionResult> GetServiceTypes()
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetServiceTypes",
+                null,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("operator/service-types")]
+        public async Task<IActionResult> AddServiceType([FromBody] JsonObject data)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@Type", data["type"]?.ToString()),
+                new SqlParameter("@Description", data["description"]?.ToString() ?? ""),
+                new SqlParameter("@BaseFare", decimal.Parse(data["base_fare"]!.ToString())),
+                new SqlParameter("@CostPerMinute", decimal.Parse(data["cost_per_minute"]!.ToString())),
+                new SqlParameter("@CostPerKm", decimal.Parse(data["cost_per_km"]!.ToString())),
+                new SqlParameter("@MinimumFare", decimal.Parse(data["minimum_fare"]!.ToString()))
+            };
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_AddServiceType",
+                parameters,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPut("operator/service-types/{id}")]
+        public async Task<IActionResult> UpdateServiceType(int id, [FromBody] JsonObject data)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@Id", id),
+                new SqlParameter("@Type", data["type"]?.ToString()),
+                new SqlParameter("@Description", data["description"]?.ToString() ?? ""),
+                new SqlParameter("@BaseFare", decimal.Parse(data["base_fare"]!.ToString())),
+                new SqlParameter("@CostPerMinute", decimal.Parse(data["cost_per_minute"]!.ToString())),
+                new SqlParameter("@CostPerKm", decimal.Parse(data["cost_per_km"]!.ToString())),
+                new SqlParameter("@MinimumFare", decimal.Parse(data["minimum_fare"]!.ToString()))
+            };
+
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_UpdateServiceType",
+                parameters,
+                CommandType.StoredProcedure
+            );
+
+            return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpDelete("operator/service-types/{id}")]
+        public async Task<IActionResult> DeleteServiceType(int id)
+        {
+            await _db.ExecuteAsync(
+                "dbo.sp_DeleteServiceType",
+                new[] { new SqlParameter("@Id", id) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "Service type deleted successfully" });
+        }
+
+        [HttpGet("operator/vehicle-prerequisites/{vehicleId}")]
+        public async Task<IActionResult> GetVehiclePrerequisites(int vehicleId)
+        {
+            var dt = await _db.LoadDataAsync(
+            "dbo.sp_GetVehiclePrerequisites",
+            new[] { new SqlParameter("@VehicleId", vehicleId) },
+            CommandType.StoredProcedure
+            );
+
+        return Ok(ConvertDataTableToDict(dt));
+        }
+
+        [HttpPost("operator/vehicle-prerequisites")]
+        public async Task<IActionResult> AddVehiclePrerequisite([FromBody] JsonObject data)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@VehicleId", int.Parse(data["vehicle_id"]!.ToString())),
+                new SqlParameter("@Description", data["description"]?.ToString() ?? ""),
+                new SqlParameter("@Value", data["value"]?.ToString() ?? ""),
+                new SqlParameter("@AgeLimit", data["age_limit"] != null ? int.Parse(data["age_limit"]!.ToString()) : (object)DBNull.Value),
+                new SqlParameter("@Type", data["type"]?.ToString() ?? "")
+            };
+
+            await _db.ExecuteAsync("dbo.sp_AddVehiclePrerequisite", parameters, CommandType.StoredProcedure);
+
+            return Ok(new { message = "Inserted" });
+        }
+
+        [HttpPut("operator/vehicle-prerequisites/{id}")]
+        public async Task<IActionResult> UpdateVehiclePrerequisite(int id, [FromBody] JsonObject data)
+        {
+            var parameters = new[]
+            {
+                new SqlParameter("@Id", id),
+                new SqlParameter("@Description", data["description"]?.ToString() ?? ""),
+                new SqlParameter("@Value", data["value"]?.ToString() ?? ""),
+                new SqlParameter("@AgeLimit", data["age_limit"] != null ? int.Parse(data["age_limit"]!.ToString()) : (object)DBNull.Value),
+                new SqlParameter("@Type", data["type"]?.ToString() ?? "")
+            };
+
+            await _db.ExecuteAsync("dbo.sp_UpdateVehiclePrerequisite", parameters, CommandType.StoredProcedure);
+
+            return Ok(new { message = "Updated" });
+        }
+
+        [HttpDelete("operator/vehicle-prerequisites/{id}")]
+        public async Task<IActionResult> DeleteVehiclePrerequisite(int id)
+        {
+            await _db.ExecuteAsync(
+                "dbo.sp_DeleteVehiclePrerequisite",
+                new[] { new SqlParameter("@Id", id) },
+                CommandType.StoredProcedure
+            );
+
+            return Ok(new { message = "Deleted" });
+        }
+
+[HttpGet("operator/vehicles")]
+public async Task<IActionResult> GetAllVehicles()
+{
+    var dt = await _db.LoadDataAsync(
+        "dbo.sp_GetAllVehicles",
+        null,
+        CommandType.StoredProcedure
+    );
+
+    return Ok(ConvertDataTableToDict(dt));
+}
+
 
         // ==========================================
         // HELPERS

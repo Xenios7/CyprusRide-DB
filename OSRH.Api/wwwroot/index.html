@@ -36,6 +36,7 @@
     
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
@@ -47,6 +48,37 @@
         <input type="password" id="password" placeholder="Κωδικός">
         <button onclick="login()" style="width:100%; margin-top:10px;">Είσοδος</button>
         <p id="login-msg" style="color:red; margin-top:10px; font-size:0.9em;"></p>
+        <p style="margin-top:15px;"><a href="#" onclick="showSignupForm()">Δημιουργία Λογαριασμού</a></p>
+    </div>
+
+    <!-- SIGN-UP -->
+    <div id="signup-section" class="hidden card" style="max-width:350px; margin:50px auto; padding:40px; border:1px solid #eee;">
+        <h2>Εγγραφή Χρήστη</h2>
+
+        <input type="text" id="su-username" placeholder="Όνομα χρήστη">
+        <input type="email" id="su-email" placeholder="Email">
+        <input type="password" id="su-password" placeholder="Κωδικός">
+        <input type="text" id="su-firstname" placeholder="Όνομα">
+        <input type="text" id="su-lastname" placeholder="Επίθετο">
+        <input type="date" id="su-dob" placeholder="Ημ. Γέννησης">
+
+        <select id="su-sex">
+            <option value="M">Άνδρας</option>
+            <option value="F">Γυναίκα</option>
+            <option value="O">Άλλο</option>
+        </select>
+
+        <input type="text" id="su-ssn" placeholder="SSN">
+        <input type="text" id="su-street" placeholder="Οδός">
+        <input type="text" id="su-postal" placeholder="Ταχυδρομικός Κώδικας">
+
+        <select id="su-role">
+            <option value="Passenger">Επιβάτης</option>
+            <option value="Driver">Οδηγός</option>
+        </select>
+
+        <button onclick="signUp()" style="margin-top:15px; width:100%; background:#28a745;">Εγγραφή</button>
+        <button onclick="hideSignupForm()" style="margin-top:10px; width:100%; background:#6c757d;">Άκυρο</button>
     </div>
 
     <!-- DASHBOARD -->
@@ -68,7 +100,7 @@
     <button onclick="loadPeakActivity()">Περίοδοι Αιχμής</button>
 
     <!-- USER MANAGEMENT -->
-    <button onclick="loadAllUsers()">Διαχείριση Χρηστών</button>
+    <button onclick="loadUserRoleManagement()">Διαχείριση Χρηστών & Ρόλων</button>
     <button onclick="loadPendingDriverRegistrations()">Εγκρίσεις Οδηγών</button>
     <button onclick="loadPendingOperatorRegistrations()">Εγκρίσεις Λειτουργών</button>
 
@@ -95,6 +127,8 @@
 
             <div id="operator-features" class="hidden">
                 <button onclick="loadPendingDocuments()" style="background-color: #ffc107; color: black;">Έλεγχος Εγγράφων (Operator)</button>
+                <button onclick="loadOperatorServiceTypes()" style="background-color:#17a2b8; color:white;">Τύποι Υπηρεσιών (Operator)</button>
+                <button onclick="loadOperatorVehicles()">Πρότυπα Οχημάτων</button>
             </div>
             
             <div id="driver-features" class="hidden">
@@ -108,12 +142,18 @@
                     <button onclick="showAddShiftForm()" class="btn-info" style="background-color: #17a2b8; color: white;">➕ Προσθήκη Βάρδιας</button>
                     
                     <button onclick="showActiveTripScreen()" class="btn-success" style="background-color: #28a745; color: white;">🚗 Τρέχουσα Διαδρομή</button>
+                
+                    <button onclick="loadDriverEarnings()">💰 Τα Έσοδά Μου</button>
+
+                    <button onclick="createGdprRequest()" style="background-color:#dc3545;">🛑 Αίτημα Διαγραφής (GDPR)</button>
+
                 </div>
             </div>
 
             <div id="passenger-features" class="hidden">
                 <button onclick="showRequestForm()" style="background-color: #28a745;">Νέα Διαδρομή (Επιβάτης)</button>
                 <button onclick="loadPassengerHistory()" style="background-color: #17a2b8;">Ιστορικό (Επιβάτης)</button>
+                <button onclick="loadPassengerCredits()"style="background-color: #6f42c1; color:white;">💳 Πληρωμές / Credits</button>
             </div>
         </div>
 
@@ -229,27 +269,72 @@
             <button onclick="submitDocument()" style="margin-top: 10px; background-color: #28a745;">Υποβολή</button>
         </div>
 
-<div id="rating-modal" class="hidden form-container" style="background: rgba(0,0,0,0.8); z-index: 1000;">
-    <div class="card" style="max-width: 400px; margin: 100px auto; text-align: center;">
-        <h3>🌟 Rate Your Trip</h3>
-        <p>How was your experience?</p>
-        
-        <div style="font-size: 2em; margin: 10px 0;">
-            <select id="rating-stars" style="font-size: 0.8em; padding: 5px;">
-                <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
-                <option value="4">⭐⭐⭐⭐ (Good)</option>
-                <option value="3">⭐⭐⭐ (Average)</option>
-                <option value="2">⭐⭐ (Poor)</option>
-                <option value="1">⭐ (Terrible)</option>
-            </select>
-        </div>
+    <div id="service-type-form" class="hidden card">
+        <h3 id="service-type-form-title">Νέος Τύπος Υπηρεσίας</h3>
 
-        <textarea id="rating-comment" placeholder="Add a comment..." class="form-control" style="width: 100%; margin-bottom: 10px;"></textarea>
-        
-        <button onclick="submitRating()" class="btn-primary" style="width: 100%;">Submit Rating</button>
-        <button onclick="closeRatingModal()" class="btn-secondary" style="width: 100%; margin-top: 5px;">Skip</button>
+        <label>Όνομα Υπηρεσίας:</label>
+        <input type="text" id="st-type">
+
+        <label>Περιγραφή:</label>
+        <input type="text" id="st-description">
+
+        <label>Base Fare (€):</label>
+        <input type="number" id="st-base-fare" step="0.01">
+
+        <label>Cost per Minute (€):</label>
+        <input type="number" id="st-cpm" step="0.01">
+
+        <label>Cost per Km (€):</label>
+        <input type="number" id="st-cpk" step="0.01">
+
+        <label>Minimum Fare (€):</label>
+        <input type="number" id="st-minfare" step="0.01">
+
+        <button id="service-type-submit" onclick="submitServiceType()" style="margin-top:15px; background:#28a745;">Αποθήκευση</button>
+        <button onclick="hideServiceTypeForm()" style="background:#6c757d; margin-left:10px;">Άκυρο</button>
     </div>
-</div>
+    
+    <div id="prerequisite-form" class="hidden card">
+        <h3 id="prerequisite-form-title">Νέο Προαπαιτούμενο</h3>
+
+        <label>Περιγραφή:</label>
+        <input type="text" id="pre-description">
+
+        <label>Τιμή:</label>
+        <input type="text" id="pre-value">
+
+        <label>Όριο Ηλικίας:</label>
+        <input type="number" id="pre-age">
+
+        <label>Τύπος:</label>
+        <input type="text" id="pre-type">
+
+        <div style="margin-top:15px; display:flex; gap:10px;">
+            <button id="prerequisite-submit" style="background:#28a745; flex:1;">Αποθήκευση</button>
+        </div>
+    </div>
+
+    <div id="rating-modal" class="hidden form-container" style="background: rgba(0,0,0,0.8); z-index: 1000;">
+        <div class="card" style="max-width: 400px; margin: 100px auto; text-align: center;">
+            <h3>🌟 Rate Your Trip</h3>
+            <p>How was your experience?</p>
+        
+            <div style="font-size: 2em; margin: 10px 0;">
+                <select id="rating-stars" style="font-size: 0.8em; padding: 5px;">
+                    <option value="5">⭐⭐⭐⭐⭐ (Excellent)</option>
+                    <option value="4">⭐⭐⭐⭐ (Good)</option>
+                    <option value="3">⭐⭐⭐ (Average)</option>
+                    <option value="2">⭐⭐ (Poor)</option>
+                    <option value="1">⭐ (Terrible)</option>
+                </select>
+            </div>
+
+            <textarea id="rating-comment" placeholder="Add a comment..." class="form-control" style="width: 100%; margin-bottom: 10px;"></textarea>
+        
+            <button onclick="submitRating()" class="btn-primary" style="width: 100%;">Submit Rating</button>
+            <button onclick="closeRatingModal()" class="btn-secondary" style="width: 100%; margin-top: 5px;">Skip</button>
+        </div>
+    </div>
 
 <!-- ========================================== -->
 <!-- COST ANALYSIS FILTER PANEL -->
@@ -572,6 +657,24 @@
         <!-- DATA TABLE -->
         <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
         <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
+
+        <div id="credit-summary" class="hidden" style="margin-top:20px;">
+        <h3>📊 Σύνοψη Πληρωμών</h3>
+        <p id="credit-monthly"></p>
+        <p id="credit-average"></p>
+
+        <canvas id="creditChart" style="max-width:400px; height:300px; margin:20px auto; display:block;"></canvas>
+
+        <!-- Filters -->
+        <label style="font-weight:bold;">Φίλτρα:</label>
+        <select id="credit-filter" onchange="applyCreditFilter()" style="padding:8px;border-radius:4px;">
+            <option value="all">Όλες οι Συναλλαγές</option>
+            <option value="large">Μεγάλες (> €10)</option>
+            <option value="month">Αυτός ο Μήνας</option>
+            <option value="sortDesc">Ταξινόμηση: Μεγαλύτερα Πρώτα</option>
+            <option value="sortAsc">Ταξινόμηση: Μικρότερα Πρώτα</option>
+        </select>
+        </div>
         
         <div class="table-container">
             <table id="data-table">
