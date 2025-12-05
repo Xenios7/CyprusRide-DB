@@ -1,6 +1,47 @@
 // Global map variable
 let map; 
 
+async function signUp() {
+    const payload = {
+        username: document.getElementById("su-username").value,
+        email: document.getElementById("su-email").value,
+        password: document.getElementById("su-password").value, // maybe hashed
+        first_name: document.getElementById("su-firstname").value,
+        last_name: document.getElementById("su-lastname").value,
+        dob: document.getElementById("su-dob").value,
+        sex: document.getElementById("su-sex").value,
+        ssn: document.getElementById("su-ssn").value,
+        street: document.getElementById("su-street").value,
+        postal_code: document.getElementById("su-postal").value,
+        role: document.getElementById("su-role").value
+    };
+
+    const res = await fetch("/api/app/account/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+        alert("❌ " + data.message);
+    } else {
+        alert("✔ " + data.message);
+        hideSignupForm();
+    }
+}
+
+function showSignupForm() {
+    document.getElementById("login-section").classList.add("hidden");
+    document.getElementById("signup-section").classList.remove("hidden");
+}
+
+function hideSignupForm() {
+    document.getElementById("signup-section").classList.add("hidden");
+    document.getElementById("login-section").classList.remove("hidden");
+}
+
 // =========================================================
 // 1. LOGIN & AUTHENTICATION
 // =========================================================
@@ -28,7 +69,12 @@ async function login() {
 
             setupDashboard(user.roles || []);
         } else {
-            document.getElementById('login-msg').innerText = "Λάθος στοιχεία.";
+            if (!response.ok) {
+                const data = await response.json();
+                document.getElementById('login-msg').innerText = data.message || "Λάθος στοιχεία.";
+                return;
+            }
+
         }
     } catch (error) {
         console.error(error);
@@ -229,7 +275,7 @@ async function fetchDriverPerformance(params = {}) {
         
         const url = `/api/app/reports/driver-performance${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         
-        console.log('Fetching:', url); // Debug
+        console.log('Fetching:', url); 
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -359,7 +405,7 @@ async function fetchTripStatistics(params = {}) {
         
         const url = `/api/app/reports/trip-statistics${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         
-        console.log('Fetching:', url); // Debug
+        console.log('Fetching:', url); 
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -480,7 +526,7 @@ async function fetchPeakActivity(params = {}) {
         
         const url = `/api/app/reports/peak-activity${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
         
-        console.log('Fetching:', url); // Debug
+        console.log('Fetching:', url);
         
         const response = await fetch(url);
         if (!response.ok) {
@@ -595,9 +641,169 @@ async function loadDriverIncome() {
     }
 }
 
-// =========================================================
-// Keep all your other existing functions below...
-// =========================================================
+// --- NEW ADMIN FEATURES---
+function loadAllUsers() {
+    document.getElementById('table-title').innerText = "Όλοι οι Χρήστες";
+    resetView();
+    fetchData('/api/admin/users');
+}
+
+let allRolesCache = []; 
+
+async function loadUserRoleManagement() {
+    document.getElementById('table-title').innerText = "Διαχείριση Χρηστών & Ρόλων";
+    resetView();
+
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+    const loading = document.getElementById("loading");
+    loading.classList.remove('hidden');
+
+    try {
+        const rolesResponse = await fetch('/api/app/admin/roles');
+        if (!rolesResponse.ok) throw new Error("Σφάλμα φόρτωσης ρόλων");
+        allRolesCache = await rolesResponse.json();
+
+        const usersResponse = await fetch('/api/app/admin/users-with-roles');
+        if (!usersResponse.ok) throw new Error("Σφάλμα φόρτωσης χρηστών");
+        const users = await usersResponse.json();
+
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        const headerRow = document.createElement("tr");
+        ["user_id", "username", "email", "is_active", "roles", "Ενέργειες"].forEach(col => {
+            const th = document.createElement("th");
+            th.innerText = col;
+            headerRow.appendChild(th);
+        });
+        tableHead.appendChild(headerRow);
+
+        users.forEach(u => {
+            const tr = document.createElement("tr");
+
+            const cols = ["user_id", "username", "email", "is_active", "roles"];
+            cols.forEach(key => {
+                const td = document.createElement("td");
+                td.innerText = u[key] !== null ? u[key] : "-";
+                tr.appendChild(td);
+            });
+
+            const actionTd = document.createElement("td");
+
+            const select = document.createElement("select");
+            allRolesCache.forEach(r => {
+                const opt = document.createElement("option");
+                opt.value = r.role_id;
+                opt.text = r.role_name;
+                select.appendChild(opt);
+            });
+
+            const btn = document.createElement("button");
+            btn.innerText = "Ανάθεση Ρόλου";
+            btn.style.marginLeft = "8px";
+            btn.onclick = () => {
+                const roleId = parseInt(select.value);
+                assignRoleToUser(u.user_id, roleId);
+            };
+
+            actionTd.appendChild(select);
+            actionTd.appendChild(btn);
+            tr.appendChild(actionTd);
+
+            tableBody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    } finally {
+        loading.classList.add('hidden');
+    }
+}
+
+
+async function assignRoleToUser(userId, roleId) {
+    if (!confirm(`Ανάθεση ρόλου (ID=${roleId}) στον χρήστη ${userId};`)) return;
+
+    try {
+        const resp = await fetch('/api/app/admin/assign-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId, roleId })
+        });
+
+        if (resp.ok) {
+            alert("Ο ρόλος ανατέθηκε επιτυχώς.");
+            loadUserRoleManagement();
+        } else {
+            alert("Σφάλμα κατά την ανάθεση ρόλου.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Σφάλμα επικοινωνίας με τον server.");
+    }
+}
+
+function loadPendingDriverRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Οδηγών";
+    resetView();
+    fetchData('/api/admin/pending-drivers');
+}
+
+function loadPendingOperatorRegistrations() {
+    document.getElementById('table-title').innerText = "Εγκρίσεις Λειτουργών";
+    resetView();
+    fetchData('/api/admin/pending-operators');
+}
+
+function loadAllDriverDocuments() {
+    document.getElementById('table-title').innerText = "Έγγραφα Οδηγών";
+    resetView();
+    fetchData('/api/admin/driver-documents');
+}
+
+function loadServiceTypes() {
+    document.getElementById('table-title').innerText = "Τύποι Υπηρεσιών";
+    resetView();
+    fetchData('/api/admin/service-types');
+}
+
+function loadVehicleStandards() {
+    document.getElementById('table-title').innerText = "Προδιαγραφές Οχημάτων";
+    resetView();
+    fetchData('/api/admin/vehicle-standards');
+}
+
+function loadPayments() {
+    document.getElementById('table-title').innerText = "Πληρωμές & Προμήθειες";
+    resetView();
+    fetchData('/api/admin/payments');
+}
+
+function loadSystemLogs() {
+    document.getElementById('table-title').innerText = "Ιστορικό Ενεργειών";
+    resetView();
+    fetchData('/api/admin/logs');
+}
+
+function loadGDPRRequests() {
+    document.getElementById('table-title').innerText = "GDPR Αιτήματα Διαγραφής";
+    resetView();
+    fetchData('/api/app/admin/gdpr-requests'); 
+}
+
+function loadRouteStatistics() {
+    document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
+    resetView();
+    fetchData('/api/admin/reports/route-statistics');
+}
+
+function loadDriverIncome() {
+    document.getElementById('table-title').innerText = "Έσοδα Οδηγών";
+    resetView();
+    fetchData('/api/admin/reports/driver-income');
+}
 
 // =========================================================
 // 3. OPERATOR FEATURES
@@ -630,6 +836,383 @@ async function verifyDocument(docId, status) {
         alert("Σφάλμα επικοινωνίας με τον server.");
     }
 }
+
+async function loadOperatorServiceTypes() {
+    document.getElementById("table-title").innerText = "Τύποι Υπηρεσιών (Operator)";
+    resetView();
+
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+
+    const loading = document.getElementById("loading");
+    loading.classList.remove("hidden");
+
+    try {
+        const response = await fetch("/api/app/operator/service-types");
+        const data = await response.json();
+
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        const headerRow = document.createElement("tr");
+        ["service_id", "type", "description", "base_fare", "cost_per_minute", "cost_per_km", "minimum_fare", "Actions"]
+            .forEach(col => {
+                const th = document.createElement("th");
+                th.innerText = col;
+                headerRow.appendChild(th);
+            });
+        tableHead.appendChild(headerRow);
+
+        data.forEach(row => {
+            const tr = document.createElement("tr");
+
+            ["service_id", "type", "description", "base_fare", "cost_per_minute", "cost_per_km", "minimum_fare"]
+                .forEach(key => {
+                    const td = document.createElement("td");
+                    td.innerText = row[key];
+                    tr.appendChild(td);
+                });
+
+            const actionTd = document.createElement("td");
+            actionTd.style.display = "flex";
+            actionTd.style.gap = "8px";
+
+            const editBtn = document.createElement("button");
+            editBtn.innerText = "✏ Επεξεργασία";
+            editBtn.style.backgroundColor = "#ffc107";
+            editBtn.onclick = () => showEditServiceTypeForm(row);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerText = "🗑 Διαγραφή";
+            deleteBtn.style.backgroundColor = "#dc3545";
+            deleteBtn.onclick = () => deleteServiceType(row.service_id);
+
+            actionTd.appendChild(editBtn);
+            actionTd.appendChild(deleteBtn);
+
+            tr.appendChild(actionTd);
+            tableBody.appendChild(tr);
+        });
+
+        const addBtn = document.createElement("button");
+        addBtn.innerText = "➕ Νέος Τύπος Υπηρεσίας";
+        addBtn.style.marginTop = "15px";
+        addBtn.onclick = showAddServiceTypeForm;
+
+        tableBody.appendChild(document.createElement("tr")).appendChild(addBtn);
+
+    } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='100%'>Σφάλμα φόρτωσης</td></tr>";
+    } finally {
+        loading.classList.add("hidden");
+    }
+}
+
+function showAddServiceTypeForm() {
+    document.getElementById("service-type-form-title").innerText = "Νέος Τύπος Υπηρεσίας";
+    resetView();
+
+    document.getElementById("st-type").value = "";
+    document.getElementById("st-description").value = "";
+    document.getElementById("st-base-fare").value = "";
+    document.getElementById("st-cpm").value = "";
+    document.getElementById("st-cpk").value = "";
+    document.getElementById("st-minfare").value = "";
+
+    document.getElementById("service-type-form").classList.remove("hidden");
+    window.currentServiceTypeId = null;
+}
+
+function showEditServiceTypeForm(row) {
+    document.getElementById("service-type-form-title").innerText = "Επεξεργασία Τύπου Υπηρεσίας";
+    resetView();
+
+    document.getElementById("st-type").value = row.type;
+    document.getElementById("st-description").value = row.description;
+    document.getElementById("st-base-fare").value = row.base_fare;
+    document.getElementById("st-cpm").value = row.cost_per_minute;
+    document.getElementById("st-cpk").value = row.cost_per_km;
+    document.getElementById("st-minfare").value = row.minimum_fare;
+
+    window.currentServiceTypeId = row.service_id;
+
+    document.getElementById("service-type-form").classList.remove("hidden");
+}
+
+async function submitServiceType() {
+    const payload = {
+        type: document.getElementById("st-type").value,
+        description: document.getElementById("st-description").value,
+        base_fare: parseFloat(document.getElementById("st-base-fare").value),
+        cost_per_minute: parseFloat(document.getElementById("st-cpm").value),
+        cost_per_km: parseFloat(document.getElementById("st-cpk").value),
+        minimum_fare: parseFloat(document.getElementById("st-minfare").value)
+    };
+
+    let endpoint;
+    let method;
+
+    if (window.currentServiceTypeId) {
+        endpoint = `/api/app/operator/service-types/${window.currentServiceTypeId}`;
+        method = "PUT";
+    }
+
+    else {
+        endpoint = "/api/app/operator/service-types";
+        method = "POST";
+    }
+
+    const response = await fetch(endpoint, {
+        method: method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (response.ok) {
+        alert("Αποθηκεύτηκε!");
+        hideServiceTypeForm();
+        loadOperatorServiceTypes();
+    } else {
+        alert("Σφάλμα.");
+    }
+}
+
+function hideServiceTypeForm() {
+    document.getElementById("service-type-form").classList.add("hidden");
+}
+
+async function deleteServiceType(id) {
+    if (!confirm("Διαγραφή τύπου υπηρεσίας;")) return;
+
+    const response = await fetch(`/api/app/operator/service-types/${id}`, {
+        method: "DELETE"
+    });
+
+
+    if (response.ok) {
+        alert("Διαγράφηκε!");
+        loadOperatorServiceTypes();
+    } else {
+        alert("Σφάλμα διαγραφής.");
+    }
+}
+
+async function loadVehiclePrerequisites(vehicleId) {
+    resetView();
+
+    document.getElementById("table-title").innerText =
+        "Προαπαιτούμενα Οχήματος #" + vehicleId;
+
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+    const loading = document.getElementById("loading");
+
+    loading.classList.remove("hidden");
+
+    try {
+        const response = await fetch(`/api/app/operator/vehicle-prerequisites/${vehicleId}`);
+        const data = await response.json();
+
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        // HEADER ROW
+        const headerRow = document.createElement("tr");
+        ["prerequisites_id", "description", "value", "age_limit", "type", "Actions"]
+            .forEach(col => {
+                const th = document.createElement("th");
+                th.innerText = col;
+                headerRow.appendChild(th);
+            });
+        tableHead.appendChild(headerRow);
+
+        // DATA ROWS
+        data.forEach(p => {
+            const tr = document.createElement("tr");
+
+            ["prerequisites_id", "description", "value", "age_limit", "type"]
+                .forEach(key => {
+                    const td = document.createElement("td");
+                    td.innerText = p[key] ?? "-";
+                    tr.appendChild(td);
+                });
+
+            // ACTION BUTTONS
+            const actionTd = document.createElement("td");
+            actionTd.style.display = "flex";
+            actionTd.style.gap = "8px";
+
+            const editBtn = document.createElement("button");
+            editBtn.innerText = "✏ Επεξεργασία";
+            editBtn.style.background = "#ffc107";
+            editBtn.onclick = () => showEditPrerequisiteForm(vehicleId, p);
+
+            const deleteBtn = document.createElement("button");
+            deleteBtn.innerText = "🗑 Διαγραφή";
+            deleteBtn.style.background = "#dc3545";
+            deleteBtn.onclick = () =>
+                deleteVehiclePrerequisite(p.prerequisites_id, vehicleId);
+
+            actionTd.appendChild(editBtn);
+            actionTd.appendChild(deleteBtn);
+
+            tr.appendChild(actionTd);
+            tableBody.appendChild(tr);
+        });
+
+        // ADD NEW BUTTON
+        const addBtn = document.createElement("button");
+        addBtn.innerText = "➕ Νέο Προαπαιτούμενο";
+        addBtn.style.marginTop = "15px";
+        addBtn.onclick = () => showAddPrerequisiteForm(vehicleId);
+
+        tableBody.appendChild(document.createElement("tr")).appendChild(addBtn);
+
+    } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='100%'>Σφάλμα φόρτωσης.</td></tr>";
+    } finally {
+        loading.classList.add("hidden");
+    }
+}
+
+function showAddPrerequisiteForm(vehicleId) {
+    window.currentPrerequisiteId = null;
+    window.currentVehicleId = vehicleId;
+
+    document.getElementById("prerequisite-form-title").innerText =
+        "Νέο Προαπαιτούμενο";
+
+    document.getElementById("pre-description").value = "";
+    document.getElementById("pre-value").value = "";
+    document.getElementById("pre-age").value = "";
+    document.getElementById("pre-type").value = "";
+
+    document.getElementById("prerequisite-form").classList.remove("hidden");
+}
+
+
+function showEditPrerequisiteForm(vehicleId, p) {
+    window.currentPrerequisiteId = p.prerequisites_id;
+    window.currentVehicleId = vehicleId;
+
+    document.getElementById("prerequisite-form-title").innerText =
+        "Επεξεργασία Προαπαιτούμενου";
+
+    document.getElementById("pre-description").value = p.description;
+    document.getElementById("pre-value").value = p.value;
+    document.getElementById("pre-age").value = p.age_limit ?? "";
+    document.getElementById("pre-type").value = p.type;
+
+    document.getElementById("prerequisite-form").classList.remove("hidden");
+}
+
+
+async function submitPrerequisite() {
+    const payload = {
+        vehicle_id: window.currentVehicleId,
+        description: document.getElementById("pre-description").value,
+        value: document.getElementById("pre-value").value,
+        age_limit: document.getElementById("pre-age").value || null,
+        type: document.getElementById("pre-type").value
+    };
+
+    let endpoint, method;
+
+    if (window.currentPrerequisiteId) {
+        endpoint = `/api/app/operator/vehicle-prerequisites/${window.currentPrerequisiteId}`;
+        method = "PUT";
+    } else {
+        endpoint = "/api/app/operator/vehicle-prerequisites";
+        method = "POST";
+    }
+
+    const res = await fetch(endpoint, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+    });
+
+    if (res.ok) {
+        alert("Αποθηκεύτηκε!");
+        hidePrerequisiteForm();
+        loadVehiclePrerequisites(window.currentVehicleId);
+    } else {
+        alert("Σφάλμα.");
+    }
+}
+
+async function deleteVehiclePrerequisite(id, vehicleId) {
+    if (!confirm("Σίγουρα θέλετε να το διαγράψετε;")) return;
+
+    await fetch(`/api/app/operator/vehicle-prerequisites/${id}`, {
+        method: "DELETE"
+    });
+
+    loadVehiclePrerequisites(vehicleId);
+}
+
+async function loadOperatorVehicles() {
+    document.getElementById('table-title').innerText = "Οχήματα";
+    resetView();
+
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+    const loading = document.getElementById("loading");
+    loading.classList.remove("hidden");
+
+    try {
+        const response = await fetch("/api/app/operator/vehicles");
+        const data = await response.json();
+
+        tableHead.innerHTML = "";
+        tableBody.innerHTML = "";
+
+        const headerRow = document.createElement("tr");
+        ["vehicle_id", "make", "model", "year", "license_plate", "Actions"]
+            .forEach(col => {
+                const th = document.createElement("th");
+                th.innerText = col;
+                headerRow.appendChild(th);
+            });
+        tableHead.appendChild(headerRow);
+
+        data.forEach(v => {
+            const tr = document.createElement("tr");
+
+            ["vehicle_id", "make", "model", "year", "license_plate"]
+                .forEach(key => {
+                    const td = document.createElement("td");
+                    td.innerText = v[key];
+                    tr.appendChild(td);
+                });
+
+            const actionTd = document.createElement("td");
+            const btn = document.createElement("button");
+            btn.innerText = "⚙ Προαπαιτούμενα";
+            btn.style.backgroundColor = "#007bff";
+            btn.onclick = () => loadVehiclePrerequisites(v.vehicle_id);
+
+            actionTd.appendChild(btn);
+            tr.appendChild(actionTd);
+
+            tableBody.appendChild(tr);
+        });
+
+    } catch (err) {
+        console.error(err);
+        tableBody.innerHTML = "<tr><td colspan='100%'>Σφάλμα φόρτωσης οχημάτων.</td></tr>";
+    } finally {
+        loading.classList.add("hidden");
+    }
+}
+
+function hidePrerequisiteForm() {
+    document.getElementById("prerequisite-form").classList.add("hidden");
+}
+
+document.getElementById("prerequisite-submit").onclick = submitPrerequisite;
 
 // =========================================================
 // 4. DRIVER FEATURES
@@ -816,6 +1399,72 @@ async function updateTripStatus(tripId, status) {
     } catch (e) { console.error(e); }
 }
 
+//  Driver earnings screen.
+async function loadDriverEarnings() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = 'Τα Έσοδά Μου';
+    resetView();
+
+    try {
+        const response = await fetch(`/api/app/driver/earnings/${currentUser}`);
+        const data = await response.json();
+
+        console.log("RAW EARNINGS RESPONSE:", data);
+
+        let amount = 0;
+
+        if (Array.isArray(data) && data.length > 0) {
+            const raw = data[0].TotalEarnings;
+
+            console.log("RAW TotalEarnings:", raw);
+
+            if (raw === null || raw === undefined || raw === "") {
+                amount = 0;
+            } else {
+                amount = Number(raw);
+            }
+
+            console.log("PARSED amount:", amount);
+        }
+
+        const tableHead = document.querySelector("#data-table thead");
+        const tableBody = document.querySelector("#data-table tbody");
+
+        tableHead.innerHTML = "<tr><th>Σύνολο Εσόδων</th></tr>";
+        tableBody.innerHTML = `<tr><td>€${amount.toFixed(2)}</td></tr>`;
+    }
+    catch (error) {
+        console.error("ERROR:", error);
+        alert("Σφάλμα φόρτωσης εσόδων.");
+    }
+}
+
+//  GDPR delete account.
+async function createGdprRequest() {
+    const currentUser = sessionStorage.getItem('currentUser');
+
+    if (!confirm("Θέλετε σίγουρα να στείλετε αίτημα GDPR διαγραφής;")) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/app/driver/gdpr-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: currentUser })
+        });
+
+        if (response.ok) {
+            alert("Το αίτημα GDPR στάλθηκε. Περιμένετε έγκριση από διαχειριστή.");
+        } else {
+            alert("Σφάλμα αποστολής αιτήματος.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Σφάλμα σύνδεσης.");
+    }
+}
+
 // =========================================================
 // 5. PASSENGER FUNCTIONS
 // =========================================================
@@ -999,6 +1648,157 @@ function closeOffers() {
     document.getElementById('offers-section').classList.add('hidden');
 }
 
+let fullCreditData = [];  // For filters.
+let filteredCreditData = [];
+
+async function loadPassengerCredits() {
+    const currentUser = sessionStorage.getItem('currentUser');
+    document.getElementById('table-title').innerText = '💳 Πληρωμές & Credits';
+    resetView();
+
+    // Show summary block.
+    document.getElementById("credit-summary").classList.remove("hidden");
+
+    try {
+        const response = await fetch(`/api/app/passenger/credits/${currentUser}`);
+        if (!response.ok) throw new Error("Server error");
+
+        const data = await response.json();
+        fullCreditData = data;
+        filteredCreditData = [...data];
+
+        if (data.length === 0) {
+            alert("Δεν υπάρχουν συναλλαγές.");
+            return;
+        }
+
+        const totalCredits = data[0].total_credits ?? 0;
+
+        // Monthly spending
+        const now = new Date();
+        const monthly = data
+            .filter(x => new Date(x.date).getMonth() === now.getMonth())
+            .reduce((sum, x) => sum + Number(x.amount || 0), 0);
+
+        // Average spend per trip
+        const avg = data.length > 1 
+            ? (data.slice(1).reduce((s,x)=>s+Number(x.amount||0),0) / (data.length-1))
+            : 0;
+
+        document.getElementById("credit-monthly").innerHTML =
+            `📅 Έξοδα τρέχοντος μήνα: <b>€${monthly.toFixed(2)}</b>`;
+
+        document.getElementById("credit-average").innerHTML =
+            `📈 Μέσο ποσό ανά διαδρομή: <b>€${avg.toFixed(2)}</b>`;
+
+        const ctx = document.getElementById("creditChart");
+        if (window.creditChartInstance) window.creditChartInstance.destroy();
+
+        const categories = {};
+        data.slice(1).forEach(x => {
+            let key = x.description || "Άλλο";
+            categories[key] = (categories[key] || 0) + Number(x.amount || 0);
+        });
+
+        window.creditChartInstance = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(categories),
+                datasets: [{
+                    data: Object.values(categories),
+                    backgroundColor: [
+                        '#007bff','#28a745','#ffc107','#dc3545','#6f42c1'
+                    ]
+                }]
+            }
+        });
+
+        renderCreditTable(filteredCreditData, totalCredits);
+
+    } catch (error) {
+        console.error(error);
+        alert("Σφάλμα φόρτωσης credits.");
+    }
+}
+
+// =========================================================
+// RENDER TABLE
+// =========================================================
+function renderCreditTable(data, totalCredits) {
+    const tableHead = document.querySelector("#data-table thead");
+    const tableBody = document.querySelector("#data-table tbody");
+
+    tableHead.innerHTML = `
+        <tr><th>Υπόλοιπο</th></tr>
+        <tr><td style="font-size:20px;font-weight:bold;">€${totalCredits}</td></tr>
+        <tr>
+            <th>Trip</th>
+            <th>Ημερομηνία</th>
+            <th>Ποσό</th>
+            <th>Περιγραφή</th>
+        </tr>
+    `;
+
+    tableBody.innerHTML = "";
+
+    data.slice(1).forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>
+                <a href="#" onclick="openCreditDetails(${row.trip_id}, '${row.description}', '${row.date}', ${row.amount})">
+                    ${row.trip_id}
+                </a>
+            </td>
+            <td>${row.date}</td>
+            <td>€${row.amount}</td>
+            <td>${row.description}</td>
+        `;
+        tableBody.appendChild(tr);
+    });
+}
+
+
+// =========================================================
+// FILTERS
+// =========================================================
+function applyCreditFilter() {
+    const value = document.getElementById("credit-filter").value;
+    filteredCreditData = [...fullCreditData];
+
+    if (value === "large") {
+        filteredCreditData = filteredCreditData.filter(x => x.amount > 10);
+    }
+    else if (value === "month") {
+        const now = new Date();
+        filteredCreditData = filteredCreditData.filter(x =>
+            new Date(x.date).getMonth() === now.getMonth()
+        );
+    }
+    else if (value === "sortDesc") {
+        filteredCreditData.sort((a,b)=>b.amount - a.amount);
+    }
+    else if (value === "sortAsc") {
+        filteredCreditData.sort((a,b)=>a.amount - b.amount);
+    }
+
+    const totalCredits = fullCreditData[0].total_credits;
+    renderCreditTable(filteredCreditData, totalCredits);
+}
+
+// =========================================================
+// MODAL: Credit Details
+// =========================================================
+function openCreditDetails(id, desc, date, amount) {
+    alert(
+        `Λεπτομέρειες Συναλλαγής\n\n` +
+        `Trip ID: ${id}\n` +
+        `Ποσό: €${amount}\n` +
+        `Ημ/νία: ${date}\n` +
+        `Περιγραφή: ${desc}`
+    );
+}
+
+
 // =========================================================
 // 6. RATING SYSTEM (From Doc 5)
 // =========================================================
@@ -1047,34 +1847,44 @@ async function submitRating() {
 
 
 function resetView() {
-    // Hide ALL filter panels
+    // ========== HIDE ALL FILTER PANELS ==========
     const costFilters = document.getElementById("cost-filters");
     if (costFilters) costFilters.classList.add("hidden");
     
     const dpFilters = document.getElementById("driver-performance-filters");
     if (dpFilters) dpFilters.classList.add("hidden");
     
-    // Hide filter summaries
+    const tsFilters = document.getElementById("trip-statistics-filters");
+    if (tsFilters) tsFilters.classList.add("hidden");
+    
+    const paFilters = document.getElementById("peak-activity-filters");
+    if (paFilters) paFilters.classList.add("hidden");
+    
+    // ========== HIDE ALL FILTER SUMMARIES ==========
     const costSummary = document.getElementById("filter-summary");
     if (costSummary) costSummary.style.display = "none";
     
     const dpSummary = document.getElementById("dp-filter-summary");
     if (dpSummary) dpSummary.style.display = "none";
     
-    // Reset current report tracker
+    const tsSummary = document.getElementById("ts-filter-summary");
+    if (tsSummary) tsSummary.style.display = "none";
+    
+    const paSummary = document.getElementById("pa-filter-summary");
+    if (paSummary) paSummary.style.display = "none";
+    
+    // ========== RESET CURRENT REPORT TRACKER ==========
     window.currentReport = null;
     
-    // Hide other forms (your existing code)
-    document.getElementById("request-form").classList.add("hidden");
-    document.getElementById("offers-section").classList.add("hidden");
-    document.getElementById("document-form").classList.add("hidden");
-    
-    // Add any other elements you hide in resetView
-    const addShiftForm = document.getElementById("add-shift-form");
-    if (addShiftForm) addShiftForm.classList.add("hidden");
-    
-    const activeTrip = document.getElementById("active-trip-screen");
-    if (activeTrip) activeTrip.classList.add("hidden");
+    // ========== HIDE ALL OTHER FORMS ==========
+    document.getElementById('request-form')?.classList.add('hidden');
+    document.getElementById('offers-section')?.classList.add('hidden');
+    document.getElementById('document-form')?.classList.add('hidden');
+    document.getElementById('add-shift-form')?.classList.add('hidden');
+    document.getElementById('active-trip-screen')?.classList.add('hidden');
+    document.getElementById("credit-summary")?.classList.add("hidden");
+    document.getElementById("service-type-form")?.classList.add("hidden");
+    document.getElementById("prerequisite-form")?.classList.add("hidden");
 }
 
 async function fetchData(endpoint) {
@@ -1091,8 +1901,17 @@ async function fetchData(endpoint) {
         if (!response.ok) throw new Error("Network response was not ok");
         const data = await response.json();
 
+        const isDriverView = endpoint.includes('driver/open-requests');
+        const isOperatorDocView = endpoint.includes('operator/pending-documents');
+        const isGdprAdminView = endpoint.includes('admin/gdpr-requests');
+            
+
         const ignored = JSON.parse(sessionStorage.getItem('ignoredRequests') || "[]");
-        const filteredData = data.filter ? data.filter(row => !ignored.includes(row.request_id)) : data;
+        let filteredData = data;
+
+       if (isGdprAdminView && Array.isArray(filteredData)) {
+            filteredData = filteredData.filter(row => row.action_type === "REQUEST");
+        }
 
         if (filteredData.length > 0) {
             const headers = Object.keys(filteredData[0]);
@@ -1103,14 +1922,18 @@ async function fetchData(endpoint) {
                 headerRow.appendChild(th);
             });
 
-            const isDriverView = endpoint.includes('driver/open-requests');
-            const isOperatorDocView = endpoint.includes('operator/pending-documents');
-            
             if (isDriverView || isOperatorDocView) {
                 const th = document.createElement("th");
                 th.innerText = "Ενέργεια";
                 headerRow.appendChild(th);
             }
+
+            if (isGdprAdminView) {
+                const th = document.createElement("th");
+                th.innerText = "Ενέργειες";
+                headerRow.appendChild(th);
+            }
+
             tableHead.appendChild(headerRow);
 
             filteredData.forEach(row => {
@@ -1156,6 +1979,26 @@ async function fetchData(endpoint) {
                     td.appendChild(btn1); td.appendChild(btn2);
                     tr.appendChild(td);
                 }
+
+                if (isGdprAdminView) {
+                const td = document.createElement("td");
+                td.style.display = "flex";
+                td.style.gap = "8px";
+
+                const approveBtn = document.createElement("button");
+                approveBtn.innerText = "✔ Αποδοχή";
+                approveBtn.style.backgroundColor = "#28a745";
+                approveBtn.onclick = () => approveGdprRequest(row.gdpr_log_id);
+
+                const rejectBtn = document.createElement("button");
+                rejectBtn.innerText = "✖ Απόρριψη";
+                rejectBtn.style.backgroundColor = "#dc3545";
+                rejectBtn.onclick = () => rejectGdprRequest(row.gdpr_log_id);
+
+                td.appendChild(approveBtn);
+                td.appendChild(rejectBtn);
+                tr.appendChild(td);
+            }
 
                 tableBody.appendChild(tr);
             });
@@ -1205,6 +2048,32 @@ function populateTable(data) {
     });
 }
 
+async function approveGdprRequest(logId) {
+    if (!confirm("Επιβεβαίωση αποδοχής GDPR αιτήματος;")) return;
+
+    await fetch('/api/app/admin/gdpr-approve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId })
+    });
+
+    alert("Το αίτημα εγκρίθηκε.");
+    loadGDPRRequests();
+}
+
+async function rejectGdprRequest(logId) {
+    if (!confirm("Επιβεβαίωση απόρριψης GDPR αιτήματος;")) return;
+
+    await fetch('/api/app/admin/gdpr-reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ logId })
+    });
+
+    alert("Το αίτημα απορρίφθηκε.");
+    loadGDPRRequests();
+}
+
 // =========================================================
 // 8. SESSION RESTORE ON PAGE LOAD (From Doc 5 - CRITICAL)
 // =========================================================
@@ -1227,5 +2096,18 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Restoring active request:", activeRequestId);
             loadOffers(activeRequestId);
         }
+
+            fetch(`/api/app/check-user/${currentUser}`)
+        .then(r => r.json())
+        .then(u => {
+            if (u.gdpr_deleted === 1 || u.is_active === 0) {
+                alert("Ο λογαριασμός σας έχει διαγραφεί λόγω GDPR.");
+                logout();
+            }
+        });
+
+    document.getElementById('login-section').classList.add('hidden');
+    document.getElementById('dashboard-section').classList.remove('hidden');
+        
     }
 });
