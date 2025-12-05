@@ -7,7 +7,7 @@ using System.Text.Json.Nodes;
 namespace OSRH.Api.Controllers
 {
     [ApiController]
-    [Route("api/app")]  // ✅ FIXED: Changed from api/[controller] to api/app
+    [Route("api/app")]  
     public class AppController : ControllerBase
     {
         private readonly SqlDataAccess _db;
