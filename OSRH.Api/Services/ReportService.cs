@@ -14,23 +14,19 @@ namespace OSRH.Api.Services
             _dataAccess = dataAccess;
         }
 
-        // Διορθωμένη μέθοδος: Καλούμε το Stored Procedure με το σωστό όνομα
         public async Task<List<CostAnalysisReportModel>> GetCostAnalysisAsync()
         {
-            // 1. Καλούμε τη βάση, δηλώνοντας ότι τρέχουμε ένα Stored Procedure
             DataTable dt = await _dataAccess.LoadDataAsync(
                 "dbo.sp_GetCostAnalysisReport",
                 null,
                 CommandType.StoredProcedure
             );
 
-            // 2. Μετατροπή του DataTable σε λίστα C# Models
             var results = new List<CostAnalysisReportModel>();
             foreach (DataRow row in dt.Rows)
             {
                 results.Add(new CostAnalysisReportModel
                 {
-                    // Χρησιμοποιούμε τα GetOrdinal/Field<T> για να διασφαλίσουμε σωστή ανάγνωση τύπων
                     ServiceId = row.Field<int>("service_id"),
                     ServiceName = row.Field<string>("ServiceName") ?? string.Empty,
                     TotalTripsCompleted = row.Field<int>("TotalTripsCompleted"),
@@ -43,6 +39,5 @@ namespace OSRH.Api.Services
             return results;
         }
         
-        // Προσθέστε εδώ και άλλες methods για τις άλλες αναφορές (Performance, Trends) όταν τις χρειαστείτε.
     }
 }

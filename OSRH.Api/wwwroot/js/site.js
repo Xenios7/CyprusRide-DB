@@ -1,11 +1,10 @@
-// Global map variable
 let map; 
 
 async function signUp() {
     const payload = {
         username: document.getElementById("su-username").value,
         email: document.getElementById("su-email").value,
-        password: document.getElementById("su-password").value, // maybe hashed
+        password: document.getElementById("su-password").value, 
         first_name: document.getElementById("su-firstname").value,
         last_name: document.getElementById("su-lastname").value,
         dob: document.getElementById("su-dob").value,
@@ -98,7 +97,6 @@ function logout() {
 // 2. ADMIN & REPORTS - ENHANCED VERSION WITH FILTERING
 // =========================================================
 
-// Global variable to track current report type
 window.currentReport = null;
 
 // ========== COST ANALYSIS REPORT (WITH FILTERING) ==========
@@ -244,7 +242,6 @@ function updateFilterSummary(params) {
 // ========== OTHER REPORTS (Keep your existing functions) ==========
 // =========================================================
 // DRIVER PERFORMANCE REPORT (WITH FILTERING)
-// Add these functions to site.js AFTER the Cost Report functions
 // =========================================================
 
 // ========== DRIVER PERFORMANCE REPORT (WITH FILTERING) ==========
@@ -262,7 +259,6 @@ async function loadDriverPerformance() {
 
 async function fetchDriverPerformance(params = {}) {
     try {
-        // Build query string from parameters
         const queryParams = new URLSearchParams();
         
         if (params.startDate) queryParams.append('startDate', params.startDate);
@@ -376,7 +372,6 @@ function updateDriverPerformanceSummary(params) {
 
 // =========================================================
 // TRIP STATISTICS REPORT (WITH FILTERING)
-// Add these functions to site.js AFTER Driver Performance
 // =========================================================
 
 // ========== TRIP STATISTICS REPORT (WITH FILTERING) ==========
@@ -498,7 +493,6 @@ function updateTripStatisticsSummary(params) {
 
 // =========================================================
 // PEAK ACTIVITY PERIODS REPORT (WITH FILTERING)
-// Add these functions to site.js AFTER Trip Statistics
 // =========================================================
 
 // ========== PEAK ACTIVITY PERIODS REPORT (WITH FILTERING) ==========
@@ -613,13 +607,6 @@ function updatePeakActivitySummary(params) {
         summary.style.display = 'none';
     }
 }
-
-
-
-
-
-
-
 
 
 
@@ -2013,7 +2000,6 @@ async function fetchData(endpoint) {
     }
 }
 
-// Helper function for admin reports (needed by loadCostReport/loadDriverPerformance)
 function populateTable(data) {
     const tableHead = document.querySelector("#data-table thead");
     const tableBody = document.querySelector("#data-table tbody");

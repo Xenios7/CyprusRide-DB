@@ -4,7 +4,7 @@ using OSRH.Api.Services;
 namespace OSRH.Api.Controllers
 {
     [ApiController]
-    [Route("api/[controller]")] // Η διεύθυνση θα είναι /api/reports
+    [Route("api/[controller]")] 
     public class ReportsController : ControllerBase
     {
         private readonly ReportService _reportService;
@@ -14,7 +14,6 @@ namespace OSRH.Api.Controllers
             _reportService = reportService;
         }
 
-        // GET: api/reports/cost-analysis
         [HttpGet("cost-analysis")]
         public async Task<IActionResult> GetCostAnalysis()
         {
