@@ -49,19 +49,51 @@ function logout() {
 }
 
 // =========================================================
-// 2. ADMIN & REPORTS
+// 2. ADMIN & REPORTS - ENHANCED VERSION WITH FILTERING
 // =========================================================
 
-// --- WORKING REPORTS (From Doc 6 - Tousis's explicit functions) ---
+// Global variable to track current report type
+window.currentReport = null;
+
+// ========== COST ANALYSIS REPORT (WITH FILTERING) ==========
 async function loadCostReport() {
     document.getElementById("table-title").innerText = "Ανάλυση Κόστους ανά Υπηρεσία";
     resetView();
+    window.currentReport = 'cost';
 
+    
+    // Show the filter panel
+    document.getElementById("cost-filters").classList.remove("hidden");
+    
+    // Load default data (no filters)
+    await fetchCostReport();
+}
+
+async function fetchCostReport(params = {}) {
     try {
-        const response = await fetch("/api/app/reports/cost");
+        // Build query string from parameters
+        const queryParams = new URLSearchParams();
+        
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        if (params.serviceId) queryParams.append('serviceId', params.serviceId);
+        if (params.city) queryParams.append('city', params.city);
+        if (params.groupBy) queryParams.append('groupBy', params.groupBy);
+        if (params.timePeriod) queryParams.append('timePeriod', params.timePeriod);
+        
+        const url = `/api/app/reports/cost${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        
+        console.log('Fetching:', url); 
+        
+        const response = await fetch(url);
         if (!response.ok) throw new Error("Σφάλμα από τον server");
+        
         const data = await response.json();
         populateTable(data);
+        
+        // Update filter summary
+        updateFilterSummary(params);
+        
     } catch (error) {
         console.error(error);
         document.querySelector("#data-table tbody").innerHTML =
@@ -69,12 +101,239 @@ async function loadCostReport() {
     }
 }
 
+function applyFilters() {
+    if (window.currentReport !== 'cost') {
+        alert('Παρακαλώ επιλέξτε πρώτα την Αναφορά Κόστους');
+        return;
+    }
+    
+    // Collect filter values
+    const params = {};
+    
+    const startDate = document.getElementById('filter-start-date').value;
+    const endDate = document.getElementById('filter-end-date').value;
+    const serviceId = document.getElementById('filter-service-id').value;
+    const city = document.getElementById('filter-city').value;
+    const groupBy = document.getElementById('filter-groupby').value;
+    const timePeriod = document.getElementById('filter-timeperiod').value;
+    
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (serviceId) params.serviceId = serviceId;
+    if (city) params.city = city.trim();
+    if (groupBy) params.groupBy = groupBy;
+    
+    // Only send timePeriod if groupBy is TimePeriod
+    if (groupBy === 'TimePeriod' && timePeriod) {
+        params.timePeriod = timePeriod;
+    }
+    
+    // Fetch with filters
+    fetchCostReport(params);
+}
+
+function clearFilters() {
+    // Reset all filter inputs
+    document.getElementById('filter-start-date').value = '';
+    document.getElementById('filter-end-date').value = '';
+    document.getElementById('filter-service-id').value = '';
+    document.getElementById('filter-city').value = '';
+    document.getElementById('filter-groupby').value = 'Service';
+    document.getElementById('filter-timeperiod').value = 'Daily';
+    
+    // Hide time period options
+    document.getElementById('timeperiod-options').classList.add('hidden');
+    
+    // Hide summary
+    document.getElementById('filter-summary').style.display = 'none';
+    
+    // Reload default data
+    fetchCostReport();
+}
+
+function toggleTimePeriodOptions() {
+    const groupBy = document.getElementById('filter-groupby').value;
+    const timePeriodDiv = document.getElementById('timeperiod-options');
+    
+    if (groupBy === 'TimePeriod') {
+        timePeriodDiv.classList.remove('hidden');
+    } else {
+        timePeriodDiv.classList.add('hidden');
+    }
+}
+
+function updateFilterSummary(params) {
+    const summary = document.getElementById('filter-summary');
+    const content = document.getElementById('filter-summary-content');
+    
+    const items = [];
+    
+    if (params.startDate) items.push(`📅 Από: ${params.startDate}`);
+    if (params.endDate) items.push(`📅 Έως: ${params.endDate}`);
+    if (params.serviceId) {
+        const serviceSelect = document.getElementById('filter-service-id');
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex].text;
+        items.push(`🚗 Υπηρεσία: ${serviceName}`);
+    }
+    if (params.city) items.push(`📍 Πόλη: ${params.city}`);
+    if (params.groupBy) {
+        const groupBySelect = document.getElementById('filter-groupby');
+        const groupByName = groupBySelect.options[groupBySelect.selectedIndex].text;
+        items.push(`📊 Ομαδοποίηση: ${groupByName}`);
+    }
+    if (params.timePeriod) {
+        const timePeriodSelect = document.getElementById('filter-timeperiod');
+        const timePeriodName = timePeriodSelect.options[timePeriodSelect.selectedIndex].text;
+        items.push(`⏰ Περίοδος: ${timePeriodName}`);
+    }
+    
+    if (items.length > 0) {
+        content.innerHTML = items.join(' • ');
+        summary.style.display = 'block';
+    } else {
+        summary.style.display = 'none';
+    }
+}
+
+// ========== OTHER REPORTS (Keep your existing functions) ==========
+// =========================================================
+// DRIVER PERFORMANCE REPORT (WITH FILTERING)
+// Add these functions to site.js AFTER the Cost Report functions
+// =========================================================
+
+// ========== DRIVER PERFORMANCE REPORT (WITH FILTERING) ==========
 async function loadDriverPerformance() {
     document.getElementById("table-title").innerText = "Απόδοση Οδηγών & Βαθμολογίες";
+    resetView();  
+    window.currentReport = 'driver-performance';
+    
+    // Show the filter panel
+    document.getElementById("driver-performance-filters").classList.remove("hidden");
+    
+    // Load default data (no filters)
+    await fetchDriverPerformance();
+}
+
+async function fetchDriverPerformance(params = {}) {
+    try {
+        // Build query string from parameters
+        const queryParams = new URLSearchParams();
+        
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        if (params.serviceId) queryParams.append('serviceId', params.serviceId);
+        if (params.city) queryParams.append('city', params.city);
+        if (params.minTrips) queryParams.append('minTrips', params.minTrips);
+        if (params.minRating) queryParams.append('minRating', params.minRating);
+        if (params.orderBy) queryParams.append('orderBy', params.orderBy);
+        
+        const url = `/api/app/reports/driver-performance${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        
+        console.log('Fetching:', url); // Debug
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error("Σφάλμα από τον server");
+        }
+        
+        const data = await response.json();
+        populateTable(data);
+        
+        // Update filter summary
+        updateDriverPerformanceSummary(params);
+        
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            `<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων. ${error.message}</td></tr>`;
+    }
+}
+
+function applyDriverPerformanceFilters() {
+    if (window.currentReport !== 'driver-performance') {
+        alert('Παρακαλώ επιλέξτε πρώτα την Αναφορά Απόδοσης Οδηγών');
+        return;
+    }
+    
+    // Collect filter values
+    const params = {};
+    
+    const startDate = document.getElementById('dp-filter-start-date').value;
+    const endDate = document.getElementById('dp-filter-end-date').value;
+    const serviceId = document.getElementById('dp-filter-service-id').value;
+    const city = document.getElementById('dp-filter-city').value;
+    const minTrips = document.getElementById('dp-filter-min-trips').value;
+    const minRating = document.getElementById('dp-filter-min-rating').value;
+    const orderBy = document.getElementById('dp-filter-orderby').value;
+    
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (serviceId) params.serviceId = serviceId;
+    if (city) params.city = city.trim();
+    if (minTrips) params.minTrips = minTrips;
+    if (minRating) params.minRating = minRating;
+    if (orderBy) params.orderBy = orderBy;
+    
+    // Fetch with filters
+    fetchDriverPerformance(params);
+}
+
+function clearDriverPerformanceFilters() {
+    // Reset all filter inputs
+    document.getElementById('dp-filter-start-date').value = '';
+    document.getElementById('dp-filter-end-date').value = '';
+    document.getElementById('dp-filter-service-id').value = '';
+    document.getElementById('dp-filter-city').value = '';
+    document.getElementById('dp-filter-min-trips').value = '';
+    document.getElementById('dp-filter-min-rating').value = '';
+    document.getElementById('dp-filter-orderby').value = 'TotalTrips';
+    
+    // Hide summary
+    document.getElementById('dp-filter-summary').style.display = 'none';
+    
+    // Reload default data
+    fetchDriverPerformance();
+}
+
+function updateDriverPerformanceSummary(params) {
+    const summary = document.getElementById('dp-filter-summary');
+    const content = document.getElementById('dp-filter-summary-content');
+    
+    const items = [];
+    
+    if (params.startDate) items.push(`📅 Από: ${params.startDate}`);
+    if (params.endDate) items.push(`📅 Έως: ${params.endDate}`);
+    if (params.serviceId) {
+        const serviceSelect = document.getElementById('dp-filter-service-id');
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex].text;
+        items.push(`🚗 Υπηρεσία: ${serviceName}`);
+    }
+    if (params.city) items.push(`📍 Πόλη: ${params.city}`);
+    if (params.minTrips) items.push(`🔢 Ελάχιστες Διαδρομές: ${params.minTrips}`);
+    if (params.minRating) items.push(`⭐ Ελάχιστη Βαθμολογία: ${params.minRating}`);
+    if (params.orderBy) {
+        const orderBySelect = document.getElementById('dp-filter-orderby');
+        const orderByName = orderBySelect.options[orderBySelect.selectedIndex].text;
+        items.push(`📊 Ταξινόμηση: ${orderByName}`);
+    }
+    
+    if (items.length > 0) {
+        content.innerHTML = items.join(' • ');
+        summary.style.display = 'block';
+    } else {
+        summary.style.display = 'none';
+    }
+}
+
+
+async function loadRouteStatistics() {
+    document.getElementById("table-title").innerText = "Στατιστικά Διαδρομών";
     resetView();
 
     try {
-        const response = await fetch("/api/app/reports/driver-performance");
+        const response = await fetch("/api/app/reports/trip-statistics");
         if (!response.ok) throw new Error("Σφάλμα από τον server");
         const data = await response.json();
         populateTable(data);
@@ -85,72 +344,26 @@ async function loadDriverPerformance() {
     }
 }
 
-// --- NEW ADMIN FEATURES (From Doc 6 - Tousis's additions) ---
-function loadAllUsers() {
-    document.getElementById('table-title').innerText = "Όλοι οι Χρήστες";
+async function loadDriverIncome() {
+    document.getElementById("table-title").innerText = "Έσοδα Οδηγών";
     resetView();
-    fetchData('/api/admin/users');
+
+    try {
+        const currentUser = sessionStorage.getItem('currentUser');
+        const response = await fetch(`/api/app/reports/driver-earnings?driverUsername=${currentUser}`);
+        if (!response.ok) throw new Error("Σφάλμα από τον server");
+        const data = await response.json();
+        populateTable(data);
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+    }
 }
 
-function loadPendingDriverRegistrations() {
-    document.getElementById('table-title').innerText = "Εγκρίσεις Οδηγών";
-    resetView();
-    fetchData('/api/admin/pending-drivers');
-}
-
-function loadPendingOperatorRegistrations() {
-    document.getElementById('table-title').innerText = "Εγκρίσεις Λειτουργών";
-    resetView();
-    fetchData('/api/admin/pending-operators');
-}
-
-function loadAllDriverDocuments() {
-    document.getElementById('table-title').innerText = "Έγγραφα Οδηγών";
-    resetView();
-    fetchData('/api/admin/driver-documents');
-}
-
-function loadServiceTypes() {
-    document.getElementById('table-title').innerText = "Τύποι Υπηρεσιών";
-    resetView();
-    fetchData('/api/admin/service-types');
-}
-
-function loadVehicleStandards() {
-    document.getElementById('table-title').innerText = "Προδιαγραφές Οχημάτων";
-    resetView();
-    fetchData('/api/admin/vehicle-standards');
-}
-
-function loadGDPRRequests() {
-    document.getElementById('table-title').innerText = "GDPR Αιτήματα Διαγραφής";
-    resetView();
-    fetchData('/api/admin/gdpr-requests');
-}
-
-function loadPayments() {
-    document.getElementById('table-title').innerText = "Πληρωμές & Προμήθειες";
-    resetView();
-    fetchData('/api/admin/payments');
-}
-
-function loadSystemLogs() {
-    document.getElementById('table-title').innerText = "Ιστορικό Ενεργειών";
-    resetView();
-    fetchData('/api/admin/logs');
-}
-
-function loadRouteStatistics() {
-    document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
-    resetView();
-    fetchData('/api/admin/reports/route-statistics');
-}
-
-function loadDriverIncome() {
-    document.getElementById('table-title').innerText = "Έσοδα Οδηγών";
-    resetView();
-    fetchData('/api/admin/reports/driver-income');
-}
+// =========================================================
+// Keep all your other existing functions below...
+// =========================================================
 
 // =========================================================
 // 3. OPERATOR FEATURES
@@ -597,14 +810,57 @@ async function submitRating() {
 // 7. CORE FUNCTIONS
 // =========================================================
 
-function resetView() {
-    document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
+// function resetView() {
+//     document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
     
-    document.getElementById('request-form')?.classList.add('hidden');
-    document.getElementById('offers-section')?.classList.add('hidden');
-    document.getElementById('document-form')?.classList.add('hidden');
-    document.getElementById('add-shift-form')?.classList.add('hidden');
-    document.getElementById('active-trip-screen')?.classList.add('hidden');
+//     document.getElementById('request-form')?.classList.add('hidden');
+//     document.getElementById('offers-section')?.classList.add('hidden');
+//     document.getElementById('document-form')?.classList.add('hidden');
+//     document.getElementById('add-shift-form')?.classList.add('hidden');
+//     document.getElementById('active-trip-screen')?.classList.add('hidden');
+//     document.getElementById("cost-filters")?.classList.add("hidden");
+//     document.getElementById("filter-summary").style.display = "none";
+    
+//     document.getElementById("driver-performance-filters")?.classList.add("hidden");
+//     document.getElementById("dp-filter-summary").style.display = "none";
+    
+//     window.currentReport = null;
+// }
+
+// =========================================================
+// COMPLETE resetView() FUNCTION
+// Replace your entire resetView() function with this
+// =========================================================
+
+function resetView() {
+    // Hide ALL filter panels
+    const costFilters = document.getElementById("cost-filters");
+    if (costFilters) costFilters.classList.add("hidden");
+    
+    const dpFilters = document.getElementById("driver-performance-filters");
+    if (dpFilters) dpFilters.classList.add("hidden");
+    
+    // Hide filter summaries
+    const costSummary = document.getElementById("filter-summary");
+    if (costSummary) costSummary.style.display = "none";
+    
+    const dpSummary = document.getElementById("dp-filter-summary");
+    if (dpSummary) dpSummary.style.display = "none";
+    
+    // Reset current report tracker
+    window.currentReport = null;
+    
+    // Hide other forms (your existing code)
+    document.getElementById("request-form").classList.add("hidden");
+    document.getElementById("offers-section").classList.add("hidden");
+    document.getElementById("document-form").classList.add("hidden");
+    
+    // Add any other elements you hide in resetView
+    const addShiftForm = document.getElementById("add-shift-form");
+    if (addShiftForm) addShiftForm.classList.add("hidden");
+    
+    const activeTrip = document.getElementById("active-trip-screen");
+    if (activeTrip) activeTrip.classList.add("hidden");
 }
 
 async function fetchData(endpoint) {

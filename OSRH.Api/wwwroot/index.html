@@ -250,6 +250,182 @@
     </div>
 </div>
 
+<!-- ========================================== -->
+<!-- COST ANALYSIS FILTER PANEL -->
+<!-- Insert this RIGHT AFTER line 252 (before the "DATA TABLE" section) -->
+<!-- ========================================== -->
+
+<!-- FILTER PANEL FOR COST ANALYSIS -->
+<div id="cost-filters" class="card hidden" style="margin-top: 20px;">
+    <h3 style="margin-top: 0;">🔍 Φίλτρα & Ομαδοποίηση</h3>
+    
+    <!-- DATE RANGE -->
+    <div class="form-group">
+        <label>Περίοδος:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Από:</label>
+                <input type="date" id="filter-start-date" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Έως:</label>
+                <input type="date" id="filter-end-date" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICE TYPE -->
+    <div class="form-group">
+        <label>Τύπος Υπηρεσίας:</label>
+        <select id="filter-service-id">
+            <option value="">-- Όλες οι Υπηρεσίες --</option>
+            <option value="1">Multi-Segment</option>
+            <option value="2">Simple Ride</option>
+            <option value="3">Heavy Cargo</option>
+            <option value="4">Light Cargo</option>
+            <option value="5">Luxury Ride</option>
+        </select>
+    </div>
+
+    <!-- LOCATION FILTER -->
+    <div class="form-group">
+        <label>Πόλη:</label>
+        <input type="text" id="filter-city" placeholder="π.χ. Nicosia, Limassol">
+    </div>
+
+    <!-- GROUPING OPTIONS -->
+    <div class="form-group">
+        <label style="font-weight: bold; color: #007bff;">Ομαδοποίηση κατά:</label>
+        <select id="filter-groupby" onchange="toggleTimePeriodOptions()">
+            <option value="Service">Υπηρεσία (Service)</option>
+            <option value="TimePeriod">Χρονική Περίοδος (TimePeriod)</option>
+            <option value="Location">Τοποθεσία (Location)</option>
+        </select>
+    </div>
+
+    <!-- TIME PERIOD OPTIONS (visible only when TimePeriod selected) -->
+    <div id="timeperiod-options" class="form-group hidden">
+        <label>Χρονική Ανάλυση:</label>
+        <select id="filter-timeperiod">
+            <option value="Daily">Ημερήσια (Daily)</option>
+            <option value="Weekly">Εβδομαδιαία (Weekly)</option>
+            <option value="Monthly">Μηνιαία (Monthly)</option>
+            <option value="Quarterly">Τριμηνιαία (Quarterly)</option>
+            <option value="Yearly">Ετήσια (Yearly)</option>
+        </select>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="applyFilters()" style="background-color: #28a745; flex: 1;">
+            🔍 Εφαρμογή Φίλτρων
+        </button>
+        <button onclick="clearFilters()" style="background-color: #6c757d; flex: 1;">
+            🔄 Καθαρισμός
+        </button>
+    </div>
+
+    <!-- FILTER SUMMARY -->
+    <div id="filter-summary" style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 0.9em; display: none;">
+        <strong>Ενεργά Φίλτρα:</strong>
+        <div id="filter-summary-content" style="margin-top: 5px;"></div>
+    </div>
+</div>
+
+
+
+
+<!-- ========================================== -->
+<!-- DRIVER PERFORMANCE FILTER PANEL -->
+<!-- Insert this RIGHT AFTER the cost-filters div in index.html -->
+<!-- ========================================== -->
+
+<!-- ========================================== -->
+<!-- DRIVER PERFORMANCE FILTER PANEL -->
+<!-- Insert this RIGHT AFTER the cost-filters div in index.html -->
+<!-- ========================================== -->
+
+<!-- FILTER PANEL FOR DRIVER PERFORMANCE -->
+<div id="driver-performance-filters" class="card hidden" style="margin-top: 20px;">
+    <h3 style="margin-top: 0;">🔍 Φίλτρα Απόδοσης Οδηγών</h3>
+    
+    <!-- DATE RANGE -->
+    <div class="form-group">
+        <label>Περίοδος:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Από:</label>
+                <input type="date" id="dp-filter-start-date" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Έως:</label>
+                <input type="date" id="dp-filter-end-date" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- SERVICE TYPE -->
+    <div class="form-group">
+        <label>Τύπος Υπηρεσίας:</label>
+        <select id="dp-filter-service-id">
+            <option value="">-- Όλες οι Υπηρεσίες --</option>
+            <option value="1">Multi-Segment</option>
+            <option value="2">Simple Ride</option>
+            <option value="3">Heavy Cargo</option>
+            <option value="4">Light Cargo</option>
+            <option value="5">Luxury Ride</option>
+        </select>
+    </div>
+
+    <!-- LOCATION FILTER -->
+    <div class="form-group">
+        <label>Πόλη:</label>
+        <input type="text" id="dp-filter-city" placeholder="π.χ. Nicosia, Limassol">
+    </div>
+
+    <!-- PERFORMANCE THRESHOLDS -->
+    <div class="form-group">
+        <label style="font-weight: bold; color: #007bff;">Όρια Απόδοσης:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Ελάχιστες Διαδρομές:</label>
+                <input type="number" id="dp-filter-min-trips" min="0" placeholder="π.χ. 10" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Ελάχιστη Βαθμολογία:</label>
+                <input type="number" id="dp-filter-min-rating" min="1" max="5" step="0.1" placeholder="π.χ. 4.5" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- SORTING OPTIONS -->
+    <div class="form-group">
+        <label>Ταξινόμηση κατά:</label>
+        <select id="dp-filter-orderby">
+            <option value="TotalTrips">Συνολικές Διαδρομές (TotalTrips)</option>
+            <option value="AvgRating">Μέση Βαθμολογία (AvgRating)</option>
+            <option value="TotalEarnings">Συνολικά Έσοδα (TotalEarnings)</option>
+        </select>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="applyDriverPerformanceFilters()" style="background-color: #28a745; flex: 1;">
+            🔍 Εφαρμογή Φίλτρων
+        </button>
+        <button onclick="clearDriverPerformanceFilters()" style="background-color: #6c757d; flex: 1;">
+            🔄 Καθαρισμός
+        </button>
+    </div>
+
+    <!-- FILTER SUMMARY -->
+    <div id="dp-filter-summary" style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 0.9em; display: none;">
+        <strong>Ενεργά Φίλτρα:</strong>
+        <div id="dp-filter-summary-content" style="margin-top: 5px;"></div>
+    </div>
+</div>  
+
+
         <!-- DATA TABLE -->
         <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
         <div id="loading" class="hidden">Φόρτωση δεδομένων...</div>
