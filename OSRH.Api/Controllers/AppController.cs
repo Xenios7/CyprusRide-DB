@@ -159,7 +159,7 @@ namespace OSRH.Api.Controllers
             var parameters = new[] {
                 new SqlParameter("@ServiceId", (object?)serviceId ?? DBNull.Value),
                 new SqlParameter("@City", (object?)city ?? DBNull.Value),
-                new SqlParameter("@GroupingLevel", groupingLevel ?? "Hourly")
+                new SqlParameter("@PeriodType", groupingLevel ?? "Hourly")
             };
             
             var dt = await _db.LoadDataAsync("dbo.sp_GetPeakActivityPeriods", parameters, CommandType.StoredProcedure);

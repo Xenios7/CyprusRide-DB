@@ -328,21 +328,255 @@ function updateDriverPerformanceSummary(params) {
 }
 
 
+// =========================================================
+// TRIP STATISTICS REPORT (WITH FILTERING)
+// Add these functions to site.js AFTER Driver Performance
+// =========================================================
+
+// ========== TRIP STATISTICS REPORT (WITH FILTERING) ==========
 async function loadRouteStatistics() {
     document.getElementById("table-title").innerText = "Στατιστικά Διαδρομών";
     resetView();
+    window.currentReport = 'trip-statistics';
+    
+    // Show the filter panel
+    document.getElementById("trip-statistics-filters").classList.remove("hidden");
+    
+    // Load default data (no filters)
+    await fetchTripStatistics();
+}
 
+async function fetchTripStatistics(params = {}) {
     try {
-        const response = await fetch("/api/app/reports/trip-statistics");
-        if (!response.ok) throw new Error("Σφάλμα από τον server");
+        // Build query string from parameters
+        const queryParams = new URLSearchParams();
+        
+        if (params.startDate) queryParams.append('startDate', params.startDate);
+        if (params.endDate) queryParams.append('endDate', params.endDate);
+        if (params.city) queryParams.append('city', params.city);
+        if (params.country) queryParams.append('country', params.country);
+        if (params.groupBy) queryParams.append('groupBy', params.groupBy);
+        
+        const url = `/api/app/reports/trip-statistics${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        
+        console.log('Fetching:', url); // Debug
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error("Σφάλμα από τον server");
+        }
+        
         const data = await response.json();
         populateTable(data);
+        
+        // Update filter summary
+        updateTripStatisticsSummary(params);
+        
     } catch (error) {
         console.error(error);
         document.querySelector("#data-table tbody").innerHTML =
-            "<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων.</td></tr>";
+            `<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων. ${error.message}</td></tr>`;
     }
 }
+
+function applyTripStatisticsFilters() {
+    if (window.currentReport !== 'trip-statistics') {
+        alert('Παρακαλώ επιλέξτε πρώτα την Αναφορά Στατιστικών Διαδρομών');
+        return;
+    }
+    
+    // Collect filter values
+    const params = {};
+    
+    const startDate = document.getElementById('ts-filter-start-date').value;
+    const endDate = document.getElementById('ts-filter-end-date').value;
+    const city = document.getElementById('ts-filter-city').value;
+    const country = document.getElementById('ts-filter-country').value;
+    const groupBy = document.getElementById('ts-filter-groupby').value;
+    
+    if (startDate) params.startDate = startDate;
+    if (endDate) params.endDate = endDate;
+    if (city) params.city = city.trim();
+    if (country) params.country = country.trim();
+    if (groupBy) params.groupBy = groupBy;
+    
+    // Fetch with filters
+    fetchTripStatistics(params);
+}
+
+function clearTripStatisticsFilters() {
+    // Reset all filter inputs
+    document.getElementById('ts-filter-start-date').value = '';
+    document.getElementById('ts-filter-end-date').value = '';
+    document.getElementById('ts-filter-city').value = '';
+    document.getElementById('ts-filter-country').value = '';
+    document.getElementById('ts-filter-groupby').value = '';
+    
+    // Hide summary
+    document.getElementById('ts-filter-summary').style.display = 'none';
+    
+    // Reload default data
+    fetchTripStatistics();
+}
+
+function updateTripStatisticsSummary(params) {
+    const summary = document.getElementById('ts-filter-summary');
+    const content = document.getElementById('ts-filter-summary-content');
+    
+    const items = [];
+    
+    if (params.startDate) items.push(`📅 Από: ${params.startDate}`);
+    if (params.endDate) items.push(`📅 Έως: ${params.endDate}`);
+    if (params.city) items.push(`📍 Πόλη: ${params.city}`);
+    if (params.country) items.push(`🌍 Χώρα: ${params.country}`);
+    if (params.groupBy) {
+        const groupBySelect = document.getElementById('ts-filter-groupby');
+        const groupByName = groupBySelect.options[groupBySelect.selectedIndex].text;
+        items.push(`📊 Ομαδοποίηση: ${groupByName}`);
+    } else {
+        items.push(`📊 Ομαδοποίηση: Χωρίς (Overall)`);
+    }
+    
+    if (items.length > 0) {
+        content.innerHTML = items.join(' • ');
+        summary.style.display = 'block';
+    } else {
+        summary.style.display = 'none';
+    }
+}
+
+
+
+
+// =========================================================
+// PEAK ACTIVITY PERIODS REPORT (WITH FILTERING)
+// Add these functions to site.js AFTER Trip Statistics
+// =========================================================
+
+// ========== PEAK ACTIVITY PERIODS REPORT (WITH FILTERING) ==========
+async function loadPeakActivity() {
+    document.getElementById("table-title").innerText = "Περίοδοι Υψηλής Δραστηριότητας";
+    resetView();
+    window.currentReport = 'peak-activity';
+    
+    // Show the filter panel
+    document.getElementById("peak-activity-filters").classList.remove("hidden");
+    
+    // Load default data (hourly grouping)
+    await fetchPeakActivity();
+}
+
+async function fetchPeakActivity(params = {}) {
+    try {
+        // Build query string from parameters
+        const queryParams = new URLSearchParams();
+        
+        if (params.serviceId) queryParams.append('serviceId', params.serviceId);
+        if (params.city) queryParams.append('city', params.city);
+        if (params.country) queryParams.append('country', params.country);
+        if (params.periodType) queryParams.append('groupingLevel', params.periodType);
+        
+        const url = `/api/app/reports/peak-activity${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+        
+        console.log('Fetching:', url); // Debug
+        
+        const response = await fetch(url);
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Server error:', errorText);
+            throw new Error("Σφάλμα από τον server");
+        }
+        
+        const data = await response.json();
+        populateTable(data);
+        
+        // Update filter summary
+        updatePeakActivitySummary(params);
+        
+    } catch (error) {
+        console.error(error);
+        document.querySelector("#data-table tbody").innerHTML =
+            `<tr><td colspan='100%'>Σφάλμα φόρτωσης δεδομένων. ${error.message}</td></tr>`;
+    }
+}
+
+function applyPeakActivityFilters() {
+    if (window.currentReport !== 'peak-activity') {
+        alert('Παρακαλώ επιλέξτε πρώτα την Αναφορά Περιόδων Αιχμής');
+        return;
+    }
+    
+    // Collect filter values
+    const params = {};
+    
+    const serviceId = document.getElementById('pa-filter-service-id').value;
+    const city = document.getElementById('pa-filter-city').value;
+    const country = document.getElementById('pa-filter-country').value;
+    const periodType = document.getElementById('pa-filter-period-type').value;
+    
+    if (serviceId) params.serviceId = serviceId;
+    if (city) params.city = city.trim();
+    if (country) params.country = country.trim();
+    if (periodType) params.periodType = periodType; // Always has a value (default: Hourly)
+    
+    // Fetch with filters
+    fetchPeakActivity(params);
+}
+
+function clearPeakActivityFilters() {
+    // Reset all filter inputs
+    document.getElementById('pa-filter-service-id').value = '';
+    document.getElementById('pa-filter-city').value = '';
+    document.getElementById('pa-filter-country').value = '';
+    document.getElementById('pa-filter-period-type').value = 'Hourly';
+    
+    // Hide summary
+    document.getElementById('pa-filter-summary').style.display = 'none';
+    
+    // Reload default data (Hourly)
+    fetchPeakActivity({ periodType: 'Hourly' });
+}
+
+function updatePeakActivitySummary(params) {
+    const summary = document.getElementById('pa-filter-summary');
+    const content = document.getElementById('pa-filter-summary-content');
+    
+    const items = [];
+    
+    if (params.serviceId) {
+        const serviceSelect = document.getElementById('pa-filter-service-id');
+        const serviceName = serviceSelect.options[serviceSelect.selectedIndex].text;
+        items.push(`🚗 Υπηρεσία: ${serviceName}`);
+    }
+    if (params.city) items.push(`📍 Πόλη: ${params.city}`);
+    if (params.country) items.push(`🌍 Χώρα: ${params.country}`);
+    
+    // Period type is always present (default: Hourly)
+    const periodType = params.periodType || 'Hourly';
+    const periodSelect = document.getElementById('pa-filter-period-type');
+    const periodName = Array.from(periodSelect.options)
+        .find(opt => opt.value === periodType)?.text || 'Ωριαία (Hourly)';
+    items.push(`⏰ Περίοδος: ${periodName}`);
+    
+    if (items.length > 0) {
+        content.innerHTML = items.join(' • ');
+        summary.style.display = 'block';
+    } else {
+        summary.style.display = 'none';
+    }
+}
+
+
+
+
+
+
+
+
+
+
 
 async function loadDriverIncome() {
     document.getElementById("table-title").innerText = "Έσοδα Οδηγών";
@@ -806,31 +1040,11 @@ async function submitRating() {
     } catch (e) { console.error(e); }
 }
 
-// =========================================================
-// 7. CORE FUNCTIONS
-// =========================================================
 
-// function resetView() {
-//     document.getElementById('data-table').innerHTML = "<thead></thead><tbody></tbody>";
-    
-//     document.getElementById('request-form')?.classList.add('hidden');
-//     document.getElementById('offers-section')?.classList.add('hidden');
-//     document.getElementById('document-form')?.classList.add('hidden');
-//     document.getElementById('add-shift-form')?.classList.add('hidden');
-//     document.getElementById('active-trip-screen')?.classList.add('hidden');
-//     document.getElementById("cost-filters")?.classList.add("hidden");
-//     document.getElementById("filter-summary").style.display = "none";
-    
-//     document.getElementById("driver-performance-filters")?.classList.add("hidden");
-//     document.getElementById("dp-filter-summary").style.display = "none";
-    
-//     window.currentReport = null;
-// }
 
-// =========================================================
-// COMPLETE resetView() FUNCTION
-// Replace your entire resetView() function with this
-// =========================================================
+
+
+
 
 function resetView() {
     // Hide ALL filter panels

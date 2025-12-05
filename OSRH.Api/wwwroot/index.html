@@ -65,6 +65,7 @@
     <button onclick="loadDriverPerformance()">Απόδοση Οδηγών</button>
     <button onclick="loadRouteStatistics()">Στατιστικά Διαδρομών</button>
     <button onclick="loadDriverIncome()">Έσοδα Οδηγών</button>
+    <button onclick="loadPeakActivity()">Περίοδοι Αιχμής</button>
 
     <!-- USER MANAGEMENT -->
     <button onclick="loadAllUsers()">Διαχείριση Χρηστών</button>
@@ -423,8 +424,150 @@
         <strong>Ενεργά Φίλτρα:</strong>
         <div id="dp-filter-summary-content" style="margin-top: 5px;"></div>
     </div>
-</div>  
+</div> 
 
+<!-- ========================================== -->
+<!-- TRIP STATISTICS FILTER PANEL -->
+<!-- Insert this RIGHT AFTER driver-performance-filters div -->
+<!-- ========================================== -->
+
+<!-- FILTER PANEL FOR TRIP STATISTICS -->
+<div id="trip-statistics-filters" class="card hidden" style="margin-top: 20px;">
+    <h3 style="margin-top: 0;">🔍 Φίλτρα Στατιστικών Διαδρομών</h3>
+    
+    <!-- DATE RANGE -->
+    <div class="form-group">
+        <label>Περίοδος:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Από:</label>
+                <input type="date" id="ts-filter-start-date" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Έως:</label>
+                <input type="date" id="ts-filter-end-date" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- LOCATION FILTERS -->
+    <div class="form-group">
+        <label>Τοποθεσία:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Πόλη:</label>
+                <input type="text" id="ts-filter-city" placeholder="π.χ. Nicosia" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Χώρα:</label>
+                <input type="text" id="ts-filter-country" placeholder="π.χ. Cyprus" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- GROUPING OPTIONS -->
+    <div class="form-group">
+        <label style="font-weight: bold; color: #007bff;">Ομαδοποίηση κατά:</label>
+        <select id="ts-filter-groupby">
+            <option value="">Χωρίς Ομαδοποίηση (Overall Statistics)</option>
+            <option value="Service">Υπηρεσία (Service)</option>
+            <option value="TimePeriod">Χρονική Περίοδος (TimePeriod)</option>
+        </select>
+        <small style="color: #666; display: block; margin-top: 5px;">
+            💡 Χωρίς ομαδοποίηση = Συνολικά στατιστικά
+        </small>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="applyTripStatisticsFilters()" style="background-color: #28a745; flex: 1;">
+            🔍 Εφαρμογή Φίλτρων
+        </button>
+        <button onclick="clearTripStatisticsFilters()" style="background-color: #6c757d; flex: 1;">
+            🔄 Καθαρισμός
+        </button>
+    </div>
+
+    <!-- FILTER SUMMARY -->
+    <div id="ts-filter-summary" style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 0.9em; display: none;">
+        <strong>Ενεργά Φίλτρα:</strong>
+        <div id="ts-filter-summary-content" style="margin-top: 5px;"></div>
+    </div>
+</div>
+
+
+<!-- ========================================== -->
+<!-- PEAK ACTIVITY PERIODS FILTER PANEL -->
+<!-- Insert this RIGHT AFTER trip-statistics-filters div -->
+<!-- ========================================== -->
+
+<!-- FILTER PANEL FOR PEAK ACTIVITY PERIODS -->
+<div id="peak-activity-filters" class="card hidden" style="margin-top: 20px;">
+    <h3 style="margin-top: 0;">🔍 Φίλτρα Περιόδων Αιχμής</h3>
+    
+    <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-bottom: 15px; border-left: 4px solid #ffc107;">
+        <strong>💡 Σημείωση:</strong> Αυτή η αναφορά ταξινομείται αυτόματα σε φθίνουσα σειρά (περισσότερες διαδρομές πρώτα).
+        <br>Το φίλτρο χρονικής περιόδου δεν είναι διαθέσιμο - η περίοδος είναι το κριτήριο ομαδοποίησης.
+    </div>
+
+    <!-- SERVICE TYPE -->
+    <div class="form-group">
+        <label>Τύπος Υπηρεσίας:</label>
+        <select id="pa-filter-service-id">
+            <option value="">-- Όλες οι Υπηρεσίες --</option>
+            <option value="1">Multi-Segment</option>
+            <option value="2">Simple Ride</option>
+            <option value="3">Heavy Cargo</option>
+            <option value="4">Light Cargo</option>
+            <option value="5">Luxury Ride</option>
+        </select>
+    </div>
+
+    <!-- LOCATION FILTERS -->
+    <div class="form-group">
+        <label>Τοποθεσία:</label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Πόλη:</label>
+                <input type="text" id="pa-filter-city" placeholder="π.χ. Nicosia" style="width: 100%;">
+            </div>
+            <div>
+                <label style="font-size: 0.85em; color: #666;">Χώρα:</label>
+                <input type="text" id="pa-filter-country" placeholder="π.χ. Cyprus" style="width: 100%;">
+            </div>
+        </div>
+    </div>
+
+    <!-- PERIOD TYPE (MANDATORY GROUPING) -->
+    <div class="form-group">
+        <label style="font-weight: bold; color: #dc3545;">Χρονική Περίοδος Ομαδοποίησης: *</label>
+        <select id="pa-filter-period-type">
+            <option value="Hourly">Ωριαία (Hourly)</option>
+            <option value="Daily">Ημερήσια (Daily)</option>
+            <option value="Weekly">Εβδομαδιαία (Weekly)</option>
+            <option value="Monthly">Μηνιαία (Monthly)</option>
+        </select>
+        <small style="color: #666; display: block; margin-top: 5px;">
+            ⚠️ Υποχρεωτικό πεδίο - καθορίζει πώς ομαδοποιούνται τα αποτελέσματα
+        </small>
+    </div>
+
+    <!-- ACTION BUTTONS -->
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+        <button onclick="applyPeakActivityFilters()" style="background-color: #28a745; flex: 1;">
+            🔍 Εφαρμογή Φίλτρων
+        </button>
+        <button onclick="clearPeakActivityFilters()" style="background-color: #6c757d; flex: 1;">
+            🔄 Καθαρισμός
+        </button>
+    </div>
+
+    <!-- FILTER SUMMARY -->
+    <div id="pa-filter-summary" style="margin-top: 15px; padding: 10px; background: #e7f3ff; border-radius: 4px; font-size: 0.9em; display: none;">
+        <strong>Ενεργά Φίλτρα:</strong>
+        <div id="pa-filter-summary-content" style="margin-top: 5px;"></div>
+    </div>
+</div>
 
         <!-- DATA TABLE -->
         <h2 id="table-title" style="margin-top: 30px;">Αποτελέσματα</h2>
