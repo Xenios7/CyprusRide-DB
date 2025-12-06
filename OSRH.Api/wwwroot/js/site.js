@@ -780,11 +780,11 @@ function loadGDPRRequests() {
     fetchData('/api/app/admin/gdpr-requests'); 
 }
 
-function loadRouteStatistics() {
-    document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
-    resetView();
-    fetchData('/api/admin/reports/route-statistics');
-}
+// function loadRouteStatistics() {
+//     document.getElementById('table-title').innerText = "Στατιστικά Διαδρομών";
+//     resetView();
+//     fetchData('/api/admin/reports/route-statistics');
+// }
 
 function loadDriverIncome() {
     document.getElementById('table-title').innerText = "Έσοδα Οδηγών";
