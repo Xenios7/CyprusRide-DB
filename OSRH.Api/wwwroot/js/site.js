@@ -46,7 +46,7 @@ function hideSignupForm() {
 // =========================================================
 async function login() {
     const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value; 
+    const password = document.getElementById('password').value;
 
     try {
         const response = await fetch('/api/app/login', {
@@ -57,10 +57,18 @@ async function login() {
 
         if (response.ok) {
             const user = await response.json();
-            
+
             sessionStorage.setItem('currentUser', user.username);
             sessionStorage.setItem('userRoles', JSON.stringify(user.roles || [])); 
             sessionStorage.removeItem('ignoredRequests');
+
+            if (user.roles.includes("Driver")) {
+                const dres = await fetch(`/api/app/driver/get-info/${user.username}`);
+                const dinfo = await dres.json();
+
+                sessionStorage.setItem("driverId", dinfo.driver_id);
+                sessionStorage.setItem("vehicleId", dinfo.vehicle_id);
+            }
 
             document.getElementById('login-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
@@ -68,13 +76,11 @@ async function login() {
 
             setupDashboard(user.roles || []);
         } else {
-            if (!response.ok) {
-                const data = await response.json();
-                document.getElementById('login-msg').innerText = data.message || "Λάθος στοιχεία.";
-                return;
-            }
-
+            const data = await response.json();
+            document.getElementById('login-msg').innerText = data.message || "Λάθος στοιχεία.";
+            return;
         }
+
     } catch (error) {
         console.error(error);
         alert("Σφάλμα σύνδεσης με τον Server.");
@@ -1287,8 +1293,8 @@ async function makeOffer(requestId, estimatedFare) {
     const costInput = prompt("Εισάγετε το κόστος της προσφοράς σας (€):", estimatedFare);
     if (costInput === null) return;
 
-    const driverId = 1; 
-    const vehicleId = 1; 
+    const driverId = sessionStorage.getItem("driverId");
+    const vehicleId = sessionStorage.getItem("vehicleId");
 
     try {
         const response = await fetch('/api/app/driver/submit-offer', {
