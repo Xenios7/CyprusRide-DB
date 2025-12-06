@@ -478,20 +478,32 @@ public async Task<IActionResult> GetOperatorServiceTypes()
         }
 
         [HttpPost("driver/submit-offer")]
-        public async Task<IActionResult> SubmitOffer([FromBody] JsonObject offerData)
-        {
-            var parameters = new SqlParameter[] {
-                new SqlParameter("@RequestId", int.Parse(offerData["requestId"]!.ToString())),
-                new SqlParameter("@DriverId", int.Parse(offerData["driverId"]!.ToString())),
-                new SqlParameter("@VehicleId", int.Parse(offerData["vehicleId"]!.ToString())),
-                new SqlParameter("@EstimatedCost", decimal.Parse(offerData["estimatedCost"]!.ToString())),
-                new SqlParameter("@DistanceToPickup", (decimal)(1.0 + new Random().NextDouble() * 5.0))
-            };
+public async Task<IActionResult> SubmitOffer([FromBody] JsonObject offerData)
+{
+    // Extract vehicleId safely
+    string? rawVehicle = offerData["vehicleId"]?.ToString();
 
-            var dt = await _db.LoadDataAsync("dbo.sp_SubmitOffer", parameters, CommandType.StoredProcedure);
-            if ((int)dt.Rows[0]["Success"] == 1) return Ok(new { message = dt.Rows[0]["Message"].ToString() });
-            return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
-        }
+    int? vehicleId =
+        string.IsNullOrWhiteSpace(rawVehicle) || rawVehicle == "null"
+            ? null
+            : int.Parse(rawVehicle);
+
+    var parameters = new SqlParameter[] {
+        new SqlParameter("@RequestId", int.Parse(offerData["requestId"]!.ToString())),
+        new SqlParameter("@DriverId", int.Parse(offerData["driverId"]!.ToString())),
+        new SqlParameter("@VehicleId", vehicleId.HasValue ? vehicleId.Value : (object)DBNull.Value),
+        new SqlParameter("@EstimatedCost", decimal.Parse(offerData["estimatedCost"]!.ToString())),
+        new SqlParameter("@DistanceToPickup", (decimal)(1.0 + new Random().NextDouble() * 5.0))
+    };
+
+    var dt = await _db.LoadDataAsync("dbo.sp_SubmitOffer", parameters, CommandType.StoredProcedure);
+
+    if ((int)dt.Rows[0]["Success"] == 1)
+        return Ok(new { message = dt.Rows[0]["Message"].ToString() });
+
+    return BadRequest(new { message = dt.Rows[0]["Message"].ToString() });
+}
+
 
         [HttpPost("driver/upload-document")]
         public async Task<IActionResult> UploadDocument([FromBody] JsonObject docData)
@@ -616,6 +628,30 @@ public async Task<IActionResult> GetOperatorServiceTypes()
             );
 
         return Ok(new { message = "Το αίτημα GDPR στάλθηκε για έγκριση." });
+        }
+
+        [HttpGet("driver/get-info/{username}")]
+        public async Task<IActionResult> GetDriverInfo(string username)
+        {
+            var dt = await _db.LoadDataAsync(
+                "dbo.sp_GetDriverInfo",
+                new[] { new SqlParameter("@Username", username) },
+                CommandType.StoredProcedure
+            );
+
+            if (dt.Rows.Count == 0)
+                return NotFound(new { message = "Driver not found" });
+
+            var row = dt.Rows[0];
+
+            return Ok(new 
+            {
+                driver_id = Convert.ToInt32(row["driver_id"]),
+                vehicle_id = row["vehicle_id"] == DBNull.Value 
+                    ? (int?)null 
+                    : Convert.ToInt32(row["vehicle_id"])
+            });
+
         }
 
         // ==========================================
